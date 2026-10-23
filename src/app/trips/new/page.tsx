@@ -4,8 +4,9 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { createTrip } from "@/lib/firebase/firestore";
-import { TripVisibility } from "@/types";
+import { TripVisibility, TripStop } from "@/types";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { RouteEditor } from "@/components/trips/RouteEditor";
 import {
   Compass,
   Sparkles,
@@ -21,7 +22,7 @@ import {
 
 export default function NewTripPage() {
   const router = useRouter();
-  const { user, signInWithGoogle, signInAsGuest } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
 
   const [name, setName] = useState("Boys-Trip nach Prag, Wien und Neustadt Dosse");
   const [description, setDescription] = useState("Roadtrip der Boys nach Prag, Wien und Neustadt (Dosse).");
@@ -29,6 +30,13 @@ export default function NewTripPage() {
   const [endDate, setEndDate] = useState("2026-07-19");
   const [visibility, setVisibility] = useState<TripVisibility>("private");
   const [inviteEmailsText, setInviteEmailsText] = useState("");
+  const [stops, setStops] = useState<TripStop[]>([
+    { id: "stop-1", city: "Berlin", country: "Deutschland", order: 0 },
+    { id: "stop-2", city: "Prag", country: "Tschechien", order: 1 },
+    { id: "stop-3", city: "Wien", country: "Österreich", order: 2 },
+    { id: "stop-4", city: "Neustadt (Dosse)", country: "Deutschland", order: 3 },
+    { id: "stop-5", city: "Berlin", country: "Deutschland", order: 4 },
+  ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
@@ -55,7 +63,8 @@ export default function NewTripPage() {
         startDate,
         endDate,
         visibility,
-        emailList
+        emailList,
+        stops
       );
 
       router.push(`/trips/${tripId}`);
@@ -208,23 +217,13 @@ export default function NewTripPage() {
             </div>
           </div>
 
-          {/* Planned Stops info */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-neutral-950/60 border border-slate-200 dark:border-neutral-800">
-            <span className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5 mb-2">
-              <MapPin className="w-3.5 h-3.5 text-rose-500" />
-              Vorkonfigurierte Route:
-            </span>
-            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400 flex-wrap">
-              <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-900 dark:text-white font-medium">Berlin</span>
-              <span>→</span>
-              <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-900 dark:text-white font-medium">Prag</span>
-              <span>→</span>
-              <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-900 dark:text-white font-medium">Wien</span>
-              <span>→</span>
-              <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-900 dark:text-white font-medium">Neustadt (Dosse)</span>
-              <span>→</span>
-              <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-900 dark:text-white font-medium">Berlin</span>
-            </div>
+          {/* Configurable Route & Stops */}
+          <div className="pt-2">
+            <RouteEditor
+              stops={stops}
+              onChange={setStops}
+              canEdit={true}
+            />
           </div>
 
           <div className="pt-2 flex items-center justify-end gap-3">

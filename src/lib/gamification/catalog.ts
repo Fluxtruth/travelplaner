@@ -117,66 +117,157 @@ export const PASSPORT_STAMPS: PassportStamp[] = [
 ];
 
 /**
- * Achievements / Badges Catalog
+ * Achievements / Badges Catalog (Witzige Boystrip-Erfolge)
  */
 export const BADGES_CATALOG: BadgeAchievement[] = [
   {
-    id: "badge-first-checkin",
-    title: "Reise-Pionier",
-    description: "Dein allererster Check-in auf dem Boystrip.",
+    id: "badge-hangover-king",
+    title: "Kater-König",
+    description: "Morgens als Letzter aus den Federn gekrochen und Sonnenbrille zum Frühstück getragen.",
+    icon: "🕶️",
+    category: "social",
+    points: 75,
+  },
+  {
+    id: "badge-beer-slayer",
+    title: "Zapfhahn-Vernichter",
+    description: "Mindestens 10 Bier auf dem Counter verbucht. Die Leber wächst mit ihren Aufgaben.",
+    icon: "🍺",
+    category: "explorer",
+    points: 150,
+  },
+  {
+    id: "badge-doener-hero",
+    title: "Döner um 04:30 Uhr",
+    description: "Lebenserhaltende fettige Sofortmaßnahmen nach Mitternacht im Alleingang gemeistert.",
+    icon: "🌯",
+    category: "social",
+    points: 100,
+  },
+  {
+    id: "badge-lost-navigator",
+    title: "Der navigatorische Totalausfall",
+    description: "Google Maps verkehrt herum gehalten und die gesamte Gruppe zielstrebig in eine Sackgasse geführt.",
     icon: "🧭",
     category: "checkin",
     points: 50,
   },
   {
-    id: "badge-beer-sommelier",
-    title: "Bier-Sommelier",
-    description: "Erfolgreicher Check-in bei einer lokalen Brauereitour.",
-    icon: "🍺",
-    category: "explorer",
-    points: 100,
-  },
-  {
-    id: "badge-night-owl",
-    title: "Nachteule",
-    description: "Check-in zu vorgerückter Stunde in einer Bar oder einem Club.",
-    icon: "🌙",
+    id: "badge-snore-terrorist",
+    title: "Schnarch-Terrorist",
+    description: "Hat das gesamte Airbnb mit ohrenbetäubenden Sägegeräuschen wachgehalten.",
+    icon: "💤",
     category: "social",
     points: 75,
   },
   {
-    id: "badge-culture-vulture",
-    title: "Kultur-Kaiser",
-    description: "Mindestens zwei historische Kultur- oder Burg-Check-ins absolviert.",
-    icon: "👑",
+    id: "badge-taxi-whisperer",
+    title: "Taxifahrer-Flüsterer",
+    description: "Hat dem Fahrer auf gebrochenem Englisch seine komplette Lebensgeschichte anvertraut.",
+    icon: "🚕",
+    category: "social",
+    points: 80,
+  },
+  {
+    id: "badge-bratwurst-baron",
+    title: "Bratwurst-Baron (Nürnberg)",
+    description: "Drei im Weggla auf dem Hauptmarkt Nürnberg in Rekordzeit inhaliert.",
+    icon: "🌭",
+    category: "explorer",
+    points: 100,
+  },
+  {
+    id: "badge-schnitzel-coma",
+    title: "Schnitzel-Koma (Wien)",
+    description: "Ein Figlmüller-Schnitzel bezwungen, das deutlich größer als der eigene Kopf war.",
+    icon: "🥩",
     category: "explorer",
     points: 125,
   },
   {
-    id: "badge-streak-3",
-    title: "On Fire (3-Tage Streak)",
-    description: "3 Tage in Folge aktiv den Trip geplant und genutzt.",
-    icon: "🔥",
-    category: "streak",
+    id: "badge-bistro-legend",
+    title: "Bordbistro-Ehrengast",
+    description: "Im EuroCity noch vor der Grenze das gesamte Dosenbier-Sortiment leergetrunken.",
+    icon: "🚆",
+    category: "checkin",
     points: 100,
   },
   {
-    id: "badge-gourmet",
-    title: "Feinschmecker",
-    description: "Check-in in mindestens 2 verschiedenen Restaurants der Route.",
-    icon: "🍽️",
+    id: "badge-packing-minimalist",
+    title: "Koffer-Minimalist",
+    description: "10 Tage Boystrip mit nur einem Rucksack – 80% Inhalt: Ladekabel, Deospray & Badehose.",
+    icon: "🧳",
+    category: "explorer",
+    points: 60,
+  },
+  {
+    id: "badge-round-sponsor",
+    title: "Runden-Ehrenmann",
+    description: "'Die nächste Runde geht auf meinen Nacken!' – Legendäre Ansage des Abends.",
+    icon: "💳",
+    category: "social",
+    points: 120,
+  },
+  {
+    id: "badge-crew-paparazzo",
+    title: "Der Paparazzo",
+    description: "Besitzt 89 kompromittierende Fotos von den Boys, die niemals auf Social Media landen dürfen.",
+    icon: "📸",
+    category: "social",
+    points: 90,
+  },
+  {
+    id: "badge-sunrise-survivor",
+    title: "Vollprofi im Sonnenaufgang",
+    description: "Die Bar erst verlassen, als draußen die ersten Tauben gurrten und die Bäcker aufmachten.",
+    icon: "🌅",
+    category: "social",
+    points: 150,
+  },
+  {
+    id: "badge-sacher-gourmet",
+    title: "Sachertorten-Feinschmecker",
+    description: "Trotz Kater im Wiener Kaffeehaus stilvoll Melange geschlürft.",
+    icon: "☕",
     category: "explorer",
     points: 75,
   },
   {
-    id: "badge-globetrotter",
-    title: "Grenzgänger",
-    description: "Stempel aus mindestens 2 verschiedenen Ländern gesammelt.",
-    icon: "🌍",
+    id: "badge-castle-climber",
+    title: "Burg-Bezwinger",
+    description: "Die 400 Stufen hochgequält – 'Aussicht war okay, wo gibt's hier das nächste Bier?'",
+    icon: "🏰",
     category: "explorer",
-    points: 150,
+    points: 110,
+  },
+  {
+    id: "badge-punctual-pioneer",
+    title: "Erster am Treffpunkt",
+    description: "Einmal im Leben pünktlich am Abfahrtsbahnhof aufgetaucht – das Wunder von Berlin.",
+    icon: "⏱️",
+    category: "checkin",
+    points: 50,
   },
 ];
+
+/**
+ * Dynamically evaluate unlocked badges based on real stats (stamps, beer count)
+ */
+export function evaluateBadges(stamps: string[] = [], beerCount: number = 0): string[] {
+  const earned: string[] = [];
+  if (beerCount >= 1) earned.push("badge-bistro-legend");
+  if (beerCount >= 5) earned.push("badge-round-sponsor");
+  if (beerCount >= 10) earned.push("badge-beer-slayer");
+  if (beerCount >= 15) earned.push("badge-hangover-king");
+  if (stamps.includes("BER-GATE")) earned.push("badge-punctual-pioneer");
+  if (stamps.includes("PRG-CASTLE") || stamps.includes("NUE-CASTLE")) earned.push("badge-castle-climber");
+  if (stamps.includes("VIE-SCHNITZEL")) earned.push("badge-schnitzel-coma");
+  if (stamps.includes("NUE-BRATWURST")) earned.push("badge-bratwurst-baron");
+  if (stamps.includes("PRG-NIGHT")) earned.push("badge-doener-hero");
+  if (stamps.includes("VIE-CAFE")) earned.push("badge-sacher-gourmet");
+  if (stamps.includes("ROUTE-RAIL")) earned.push("badge-packing-minimalist");
+  return earned;
+}
 
 /**
  * Level Calculation

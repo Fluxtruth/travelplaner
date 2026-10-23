@@ -6,6 +6,7 @@ import {
   updateTripVisibility,
   inviteUserToTripByEmail,
   removeParticipantFromTrip,
+  updateTripName,
 } from "@/lib/firebase/firestore";
 import {
   X,
@@ -20,6 +21,7 @@ import {
   Users,
   CheckCircle2,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
 
 interface ProjectAccessModalProps {
@@ -36,6 +38,8 @@ export function ProjectAccessModal({
   onClose,
 }: ProjectAccessModalProps) {
   const isOwner = trip.ownerId === currentUserId;
+  const [tripName, setTripName] = useState(trip.name);
+  const [isUpdatingName, setIsUpdatingName] = useState(false);
   const [visibility, setVisibility] = useState<TripVisibility>(trip.visibility || "private");
   const [inviteEmail, setInviteEmail] = useState("");
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
@@ -43,7 +47,28 @@ export function ProjectAccessModal({
   const [copiedCode, setCopiedCode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    setTripName(trip.name);
+  }, [trip.name]);
+
   if (!isOpen) return null;
+
+  const handleUpdateName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = tripName.trim();
+    if (!trimmed || trimmed === trip.name) return;
+
+    setIsUpdatingName(true);
+    try {
+      await updateTripName(trip.id, trimmed);
+      setMessage("Reisenamen erfolgreich geändert!");
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err) {
+      console.warn("Failed to update trip name:", err);
+    } finally {
+      setIsUpdatingName(false);
+    }
+  };
 
   const handleToggleVisibility = async (newVisibility: TripVisibility) => {
     if (!isOwner) return;
@@ -128,6 +153,31 @@ export function ProjectAccessModal({
         )}
 
         <div className="mt-5 space-y-6">
+          {/* Trip Name Section */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-2 flex items-center gap-1.5">
+              <Pencil className="w-3.5 h-3.5 text-blue-500" />
+              Reise-Titel
+            </label>
+            <form onSubmit={handleUpdateName} className="flex gap-2">
+              <input
+                type="text"
+                value={tripName}
+                onChange={(e) => setTripName(e.target.value)}
+                placeholder="Reisenamen eingeben..."
+                className="flex-1 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800 text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={isUpdatingName || !tripName.trim() || tripName.trim() === trip.name}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5 shrink-0"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isUpdatingName ? "Speichert..." : "Speichern"}</span>
+              </button>
+            </form>
+          </div>
+
           {/* Visibility Section */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-2">

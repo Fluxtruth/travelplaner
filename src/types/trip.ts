@@ -5,7 +5,7 @@ export type TripVisibility = "private" | "public";
 export interface TripStop {
   id: string;
   city: string;
-  country: string;
+  country?: string;
   order: number;
   startDate?: string; // YYYY-MM-DD
   endDate?: string;   // YYYY-MM-DD
@@ -22,7 +22,7 @@ export interface Trip {
   inviteCode: string;
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
-  stops: TripStop[] | string[];
+  stops: (TripStop | string)[];
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
 }

@@ -26,17 +26,17 @@ interface GamificationContextType {
 }
 
 const DEFAULT_PROFILE: UserGamificationProfile = {
-  userId: "guest-user",
-  tripId: "demo",
+  userId: "",
+  tripId: "",
   displayName: "Traveler",
-  points: 150,
-  level: 2,
-  levelTitle: "City-Scout",
-  beerCount: 7,
-  currentStreak: 2,
+  points: 0,
+  level: 1,
+  levelTitle: "Reise-Rookie",
+  beerCount: 0,
+  currentStreak: 1,
   lastActiveDate: new Date().toISOString().split("T")[0],
-  stamps: ["BER-GATE", "PRG-BREW"],
-  badges: ["badge-first-checkin", "badge-beer-sommelier"],
+  stamps: [],
+  badges: [],
   checkins: {},
 };
 
@@ -48,15 +48,30 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [xpGainAlert, setXpGainAlert] = useState<{ amount: number; reason?: string } | null>(null);
 
-  // Hydrate profile from localStorage after initial mount to prevent SSR hydration mismatch
+  // Hydrate profile from localStorage after initial mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("boystrip_gamification_profile");
+      if (!user) {
+        setProfile(DEFAULT_PROFILE);
+        return;
+      }
+      const storageKey = `boystrip_gamification_profile_${user.uid}`;
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         setProfile((prev) => ({
           ...prev,
           ...parsed,
+          userId: user.uid,
+          displayName: authProfile?.displayName || user.displayName || parsed.displayName || "Traveler",
+          photoURL: (authProfile?.photoURL || user.photoURL || parsed.photoURL) ?? undefined,
+        }));
+      } else {
+        setProfile((prev) => ({
+          ...DEFAULT_PROFILE,
+          userId: user.uid,
+          displayName: authProfile?.displayName || user.displayName || "Traveler",
+          photoURL: (authProfile?.photoURL || user.photoURL) ?? undefined,
         }));
       }
     } catch (e) {
@@ -64,29 +79,32 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoaded(true);
     }
-  }, []);
+  }, [user, authProfile]);
 
   // Sync display name and photo when authProfile changes
   useEffect(() => {
-    if (user || authProfile) {
+    if (user) {
       setProfile((prev) => ({
         ...prev,
-        userId: user?.uid || prev.userId,
-        displayName: authProfile?.displayName || user?.displayName || prev.displayName,
-        photoURL: authProfile?.photoURL || user?.photoURL || prev.photoURL,
+        userId: user.uid,
+        displayName: authProfile?.displayName || user.displayName || prev.displayName || "Traveler",
+        photoURL: (authProfile?.photoURL || user.photoURL || prev.photoURL) ?? undefined,
       }));
+    } else {
+      setProfile(DEFAULT_PROFILE);
     }
   }, [user, authProfile]);
 
   // Persist locally only after client-side hydration is complete
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !user) return;
     try {
-      localStorage.setItem("boystrip_gamification_profile", JSON.stringify(profile));
+      const storageKey = `boystrip_gamification_profile_${user.uid}`;
+      localStorage.setItem(storageKey, JSON.stringify(profile));
     } catch (e) {
       // storage quota or private browsing
     }
-  }, [profile, isLoaded]);
+  }, [profile, isLoaded, user]);
 
   const levelInfo = calculateLevel(profile.points);
 

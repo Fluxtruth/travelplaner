@@ -29,15 +29,17 @@ export function Navbar() {
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/85 backdrop-blur-xl transition-colors">
       <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-2">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 group shrink-0">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-0.5 shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform shrink-0">
-            <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center">
-              <Compass className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 group-hover:rotate-45 transition-transform duration-300" />
-            </div>
+        <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform shrink-0 border border-slate-200 dark:border-neutral-800 bg-slate-900">
+            <img
+              src="/logo-3d.png"
+              alt="Phil's Travelplaner Logo"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-sm sm:text-base tracking-wider text-slate-900 dark:text-white leading-tight">
-              BOYSTRIP
+            <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-900 dark:text-white leading-tight">
+              Phil&apos;s Travelplaner
             </span>
             <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-neutral-400 font-mono tracking-tight hidden sm:inline">
               Collab Travel Hub
@@ -47,8 +49,8 @@ export function Navbar() {
 
         {/* Center / Actions */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Minimalist Header XP Bar */}
-          <HeaderXpBar />
+          {/* Minimalist Header XP Bar - only when authenticated */}
+          {user && <HeaderXpBar />}
 
           {/* Light / Dark Mode Toggle */}
           <button

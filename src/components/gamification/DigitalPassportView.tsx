@@ -12,6 +12,7 @@ import {
   PASSPORT_STAMPS,
   BADGES_CATALOG,
   calculateLevel,
+  evaluateBadges,
 } from "@/lib/gamification/catalog";
 import { voteForBestExperience } from "@/lib/firebase/firestore";
 import { useGamification } from "@/context/GamificationContext";
@@ -57,71 +58,49 @@ export function DigitalPassportView({
   onGoToTimeline,
 }: DigitalPassportViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<"leaderboard" | "badges" | "contest">("leaderboard");
-  const { profile: contextProfile, updateBeerCount } = useGamification();
+  const { profile: contextProfile, updateBeerCount, updateProfile, addXp } = useGamification();
 
-  // Default Crew Profiles with realistic beer counts
-  const defaultCrewProfiles: UserGamificationProfile[] = [
-    {
+  // Evaluate automatic badges based on stamps and beerCount
+  const myBeerCount = contextProfile.beerCount ?? 0;
+  const autoBadges = evaluateBadges(contextProfile.stamps, myBeerCount);
+  const myUnlockedBadges = Array.from(new Set([...(contextProfile.badges || []), ...autoBadges]));
+
+  // Active Real Crew Profiles ONLY - Absolutely NO fake users!
+  const activeProfiles = React.useMemo(() => {
+    const list: UserGamificationProfile[] = [];
+
+    // Current user's real profile
+    const currentInProfiles = (profiles || []).find((p) => p.userId === currentUserId);
+    const myPoints = Math.max(currentInProfiles?.points || 0, contextProfile.points || 0);
+    const myCalc = calculateLevel(myPoints);
+
+    const myProfileItem: UserGamificationProfile = {
       userId: currentUserId,
       tripId: trip.id,
-      displayName: currentUserName,
+      displayName: currentUserName || "Traveler",
       photoURL: currentUserPhoto || undefined,
-      points: 150,
-      level: 2,
-      levelTitle: "City-Scout",
-      beerCount: 8,
-      currentStreak: 2,
+      points: myPoints,
+      level: myCalc.level,
+      levelTitle: myCalc.title,
+      beerCount: Math.max(currentInProfiles?.beerCount || 0, myBeerCount),
+      currentStreak: currentInProfiles?.currentStreak || contextProfile.currentStreak || 1,
       lastActiveDate: new Date().toISOString().split("T")[0],
-      stamps: ["BER-GATE", "PRG-BREW"],
-      badges: ["badge-first-checkin", "badge-beer-sommelier"],
-      checkins: {},
-    },
-    {
-      userId: "crew-lukas",
-      tripId: trip.id,
-      displayName: "Lukas M.",
-      photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      points: 325,
-      level: 3,
-      levelTitle: "Abenteurer",
-      beerCount: 14,
-      currentStreak: 3,
-      lastActiveDate: new Date().toISOString().split("T")[0],
-      stamps: ["BER-GATE", "PRG-BREW", "PRG-CASTLE", "ROUTE-RAIL"],
-      badges: ["badge-first-checkin", "badge-streak-3", "badge-beer-sommelier", "badge-culture-vulture"],
-      checkins: {},
-    },
-    {
-      userId: "crew-basti",
-      tripId: trip.id,
-      displayName: "Basti K.",
-      photoURL: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80",
-      points: 220,
-      level: 2,
-      levelTitle: "City-Scout",
-      beerCount: 11,
-      currentStreak: 2,
-      lastActiveDate: new Date().toISOString().split("T")[0],
-      stamps: ["BER-GATE", "PRG-NIGHT"],
-      badges: ["badge-first-checkin", "badge-night-owl"],
-      checkins: {},
-    },
-    {
-      userId: "crew-jan",
-      tripId: trip.id,
-      displayName: "Jan S.",
-      photoURL: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80",
-      points: 90,
-      level: 1,
-      levelTitle: "Reise-Rookie",
-      beerCount: 5,
-      currentStreak: 1,
-      lastActiveDate: new Date().toISOString().split("T")[0],
-      stamps: ["BER-GATE"],
-      badges: ["badge-first-checkin"],
-      checkins: {},
-    },
-  ];
+      stamps: Array.from(new Set([...(currentInProfiles?.stamps || []), ...(contextProfile.stamps || [])])),
+      badges: Array.from(new Set([...(currentInProfiles?.badges || []), ...myUnlockedBadges])),
+      checkins: { ...(currentInProfiles?.checkins || {}), ...(contextProfile.checkins || {}) },
+    };
+
+    list.push(myProfileItem);
+
+    // Other real participants synced from Firestore
+    (profiles || []).forEach((p) => {
+      if (p.userId !== currentUserId) {
+        list.push(p);
+      }
+    });
+
+    return list.sort((a, b) => ((b.beerCount ?? 0) - (a.beerCount ?? 0)) || ((b.points || 0) - (a.points || 0)));
+  }, [profiles, currentUserId, currentUserName, currentUserPhoto, trip.id, contextProfile, myBeerCount, myUnlockedBadges]);
 
   const defaultCandidates: ExperienceContestItem[] = [
     {
@@ -131,7 +110,7 @@ export function DigitalPassportView({
       city: "Prag",
       category: "Aktivität & Bier",
       imageUrl: "https://images.unsplash.com/photo-1518173946687-a4c8a383392e?w=800&auto=format&fit=crop&q=80",
-      votes: ["crew-lukas", "crew-basti"],
+      votes: [],
     },
     {
       id: "contest-2",
@@ -140,7 +119,7 @@ export function DigitalPassportView({
       city: "Prag",
       category: "Bar & Nightlife",
       imageUrl: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&auto=format&fit=crop&q=80",
-      votes: ["crew-jan"],
+      votes: [],
     },
     {
       id: "contest-3",
@@ -149,7 +128,7 @@ export function DigitalPassportView({
       city: "Prag",
       category: "Kultur & Panorama",
       imageUrl: "https://images.unsplash.com/photo-1513805959324-96eb66ca8713?w=800&auto=format&fit=crop&q=80",
-      votes: ["crew-lukas"],
+      votes: [],
     },
     {
       id: "contest-4",
@@ -162,24 +141,6 @@ export function DigitalPassportView({
     },
   ];
 
-  const combinedProfiles = [
-    ...(profiles || []),
-    ...defaultCrewProfiles.filter((def) => !(profiles || []).some((p) => p.userId === def.userId)),
-  ].map((p) => {
-    if (p.userId === currentUserId || (currentUserId === "guest-user" && p.userId === contextProfile.userId)) {
-      return {
-        ...p,
-        ...contextProfile,
-        beerCount: contextProfile.beerCount ?? p.beerCount ?? 0,
-      };
-    }
-    return p;
-  });
-
-  const activeProfiles = combinedProfiles
-    .slice()
-    .sort((a, b) => ((b.beerCount ?? 0) - (a.beerCount ?? 0)) || ((b.points || 0) - (a.points || 0)));
-
   const [contestItems, setContestItems] = useState<ExperienceContestItem[]>(
     candidates && candidates.length > 0 ? candidates : defaultCandidates
   );
@@ -190,13 +151,37 @@ export function DigitalPassportView({
     }
   }, [candidates]);
 
-  // Get current user profile or fallback
-  const rawProfile = activeProfiles.find((p) => p.userId === currentUserId) || defaultCrewProfiles[0];
-  const myProfile =
-    currentUserId === contextProfile.userId || currentUserId === "guest-user"
-      ? { ...rawProfile, ...contextProfile }
-      : rawProfile;
+  // Current user's profile for display
+  const myProfile = activeProfiles[0] || {
+    userId: currentUserId,
+    tripId: trip.id,
+    displayName: currentUserName,
+    points: 0,
+    level: 1,
+    levelTitle: "Reise-Rookie",
+    beerCount: 0,
+    stamps: [],
+    badges: [],
+  };
   const levelInfo = calculateLevel(myProfile.points);
+
+  const handleToggleBadge = (badgeId: string, badgeTitle: string, badgePoints: number) => {
+    const isCurrentlyUnlocked = myUnlockedBadges.includes(badgeId);
+    let nextBadges: string[];
+    if (isCurrentlyUnlocked) {
+      nextBadges = myUnlockedBadges.filter((id) => id !== badgeId);
+    } else {
+      nextBadges = [...myUnlockedBadges, badgeId];
+      addXp(badgePoints, `Badge freigeschaltet: ${badgeTitle}`);
+      confetti({
+        particleCount: 60,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ["#f59e0b", "#ec4899", "#8b5cf6", "#10b981"],
+      });
+    }
+    updateProfile({ badges: nextBadges });
+  };
 
   const handleVoteExperience = async (candidateId: string) => {
     setContestItems((prev) =>
@@ -372,13 +357,29 @@ export function DigitalPassportView({
                     <p className="text-[11px] text-slate-500 dark:text-neutral-400 leading-snug">
                       {badge.description}
                     </p>
-                    <span className="inline-block mt-2 text-[10px] font-bold">
-                      {isUnlocked ? (
-                        <span className="text-emerald-600 dark:text-emerald-400">✓ Erreicht</span>
-                      ) : (
-                        <span className="text-slate-400">Gesperrt</span>
-                      )}
-                    </span>
+                    <div className="mt-2.5 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold">
+                        {isUnlocked ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-bold">
+                            ✓ Freigeschaltet
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 dark:text-neutral-500">Noch offen</span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleBadge(badge.id, badge.title, badge.points)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                          isUnlocked
+                            ? "bg-slate-100 dark:bg-neutral-800 text-slate-500 hover:text-rose-500 border-slate-200 dark:border-neutral-700"
+                            : "bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-xs active:scale-95"
+                        }`}
+                        title={isUnlocked ? "Badge zurücknehmen" : "Badge für dich verbuchen"}
+                      >
+                        {isUnlocked ? "Zurücknehmen" : "Freischalten 🎉"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -599,6 +600,19 @@ export function DigitalPassportView({
                 </div>
               );
             })}
+
+            {activeProfiles.length === 1 && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/70 to-indigo-50/70 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/80 dark:border-blue-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                <div>
+                  <h4 className="text-xs font-bold text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
+                    <span>👑 Du führst aktuell als einziger Reisender die Rangliste an!</span>
+                  </h4>
+                  <p className="text-[11px] text-blue-700 dark:text-blue-400 mt-0.5">
+                    Lade deine Crew ein (z.B. mit Code <span className="font-mono font-bold bg-white/60 dark:bg-black/30 px-1 rounded">{trip.inviteCode}</span>), damit ihr live beim Bier-Counter und den Badges gegeneinander antreten könnt.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

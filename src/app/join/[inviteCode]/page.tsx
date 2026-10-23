@@ -88,20 +88,14 @@ function JoinTripContent() {
       {status === "prompt-auth" && (
         <div className="space-y-4">
           <p className="text-xs text-slate-600 dark:text-neutral-300 leading-relaxed">
-            Bitte melde dich an, um der Reise beizutreten und mit deiner Gruppe abzustimmen:
+            Bitte melde dich mit deinem Google-Konto an, um der Reise beizutreten und mit deiner Gruppe abzustimmen:
           </p>
           <div className="flex flex-col gap-2.5">
             <button
               onClick={() => handleAuthAndJoin("google")}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-500/20 transition-all"
+              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-950 font-bold text-xs shadow-lg active:scale-95 transition-all cursor-pointer"
             >
               Mit Google anmelden
-            </button>
-            <button
-              onClick={() => handleAuthAndJoin("guest")}
-              className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 font-semibold text-xs border border-slate-200 dark:border-neutral-700 transition-all"
-            >
-              Als Gast beitreten
             </button>
           </div>
         </div>

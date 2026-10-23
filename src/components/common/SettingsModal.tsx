@@ -182,29 +182,7 @@ export function SettingsModal({
           )}
         </div>
 
-        {/* SECTION 2: Prototyp-Trip Fokus */}
-        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-neutral-950/60 border border-slate-200 dark:border-neutral-800 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              Aktueller Fokus-Trip (Prototyp)
-            </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300">
-              Aktiv
-            </span>
-          </div>
-
-          <div className="text-xs text-slate-600 dark:text-neutral-300">
-            <p className="font-semibold text-slate-800 dark:text-neutral-100">
-              Boys-Trip nach Prag, Wien und Neustadt Dosse
-            </p>
-            <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5">
-              Route: Berlin → Prag → Wien → Neustadt (Dosse) → Berlin
-            </p>
-          </div>
-        </div>
-
-        {/* SECTION 3: Design / Erscheinungsbild */}
+      {/* SECTION 2: Design / Erscheinungsbild */}
         <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-neutral-950/60 border border-slate-200 dark:border-neutral-800">
           <div>
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
@@ -250,7 +228,7 @@ export function SettingsModal({
                   {profile?.displayName || "Google Nutzer"}
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate">
-                  {user.email || "Gast-Modus"}
+                  {user.email || "Angemeldet"}
                 </p>
               </div>
             </div>

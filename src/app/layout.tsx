@@ -11,7 +11,7 @@ import { Footer } from "@/components/common/Footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Boystrip - Kollaborative Reiseplanung & Abstimmung",
+  title: "Phil's Travelplaner - Kollaborative Reiseplanung & Abstimmung",
   description:
     "Echtzeit Multi-User Reiseplanungs-App mit Swipe-Voting für Flixbus, Bahn & Airbnb sowie interaktiver Drag-and-Drop Timeline.",
 };

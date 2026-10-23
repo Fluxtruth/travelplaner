@@ -29,11 +29,15 @@ import {
   ShieldCheck,
   Share2,
   Settings,
+  Beer,
+  Award,
+  Trophy,
+  Check,
 } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
-  const { user, profile, loading, signInWithGoogle, signInAsGuest } = useAuth();
+  const { user, profile, loading, signInWithGoogle } = useAuth();
 
   const [myTrips, setMyTrips] = useState<Trip[]>([]);
   const [publicTrips, setPublicTrips] = useState<Trip[]>([]);
@@ -42,6 +46,9 @@ export default function HomePage() {
   const [isCreatingDemo, setIsCreatingDemo] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [landingInviteCode, setLandingInviteCode] = useState("");
+  const [joinStatus, setJoinStatus] = useState<string | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
 
   // Subscribe to Cloud Firestore user trips & public trips when authenticated
   useEffect(() => {
@@ -96,43 +103,74 @@ export default function HomePage() {
     }
   };
 
+  const handleQuickJoin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = landingInviteCode.trim().toUpperCase();
+    if (!code) return;
+
+    setIsJoining(true);
+    setJoinStatus(null);
+    try {
+      let activeUser = user;
+      if (!activeUser) {
+        setAuthModalOpen(true);
+        setIsJoining(false);
+        return;
+      }
+      const resTripId = await joinTripByInviteCode(code, activeUser.uid);
+      if (resTripId) {
+        setJoinStatus("Erfolgreich! Weiterleitung...");
+        router.push(`/trips/${resTripId}`);
+      } else {
+        setJoinStatus("Ungültiger Einladungscode. Bitte prüfen.");
+      }
+    } catch (err) {
+      console.warn("Join failed:", err);
+      setJoinStatus("Fehler beim Beitreten.");
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   // ===============================================================
   // ACCESS GATE: If user is not authenticated, prompt sign-in!
   // ===============================================================
   if (!loading && !user) {
     return (
-      <div className="flex-1 flex flex-col justify-center items-center px-4 py-16 max-w-4xl mx-auto w-full text-center">
-        {/* Glow */}
-        <div className="w-16 h-16 rounded-3xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-6 border border-blue-500/20 shadow-xl shadow-blue-500/10">
-          <ShieldCheck className="w-8 h-8" />
+      <div className="flex-1 flex flex-col justify-center items-center px-4 py-16 sm:py-24 max-w-xl mx-auto w-full text-center">
+        {/* 3D App Icon Logo */}
+        <div className="relative mb-8 group">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl overflow-hidden shadow-2xl shadow-blue-500/25 border-2 border-slate-200 dark:border-neutral-800 bg-slate-900 mx-auto transition-transform group-hover:scale-105 duration-300">
+            <img
+              src="/logo-3d.png"
+              alt="Phil's Travelplaner 3D Logo"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="absolute -bottom-1.5 -right-1.5 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center border-2 border-white dark:border-neutral-900 shadow-md">
+            <Lock className="w-4 h-4" />
+          </div>
         </div>
 
-        {/* Route Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-xs text-slate-700 dark:text-neutral-300 mb-6 shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-semibold text-slate-900 dark:text-white">Prototyp-Route:</span>
-          <span>Berlin → Prag → Wien → Neustadt (Dosse) → Berlin</span>
-        </div>
-
-        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white max-w-2xl leading-tight">
-          Kollaborative Reiseplanung <br />
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+          Phil&apos;s Travelplaner <br />
           <span className="text-blue-600 dark:text-blue-400">
             Zugang nur für angemeldete Nutzer
           </span>
         </h1>
 
-        <p className="mt-4 text-sm sm:text-base text-slate-600 dark:text-neutral-400 max-w-xl leading-relaxed mx-auto">
-          Um eure gemeinsamen Reisen in Echtzeit zu planen, an Abstimmungen teilzunehmen
-          und live zusammenzuarbeiten, melde dich bitte mit deinem Google-Konto an.
+        <p className="mt-4 text-sm sm:text-base text-slate-600 dark:text-neutral-400 max-w-md leading-relaxed mx-auto">
+          Um eure gemeinsamen Reisen in Echtzeit zu planen und live zusammenzuarbeiten,
+          melde dich bitte mit deinem Google-Konto an.
         </p>
 
-        {/* Auth Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-sm mx-auto">
+        {/* Auth Button - Only Google Sign-in */}
+        <div className="mt-8 w-full max-w-xs mx-auto">
           <button
             onClick={() => signInWithGoogle()}
-            className="w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-950 font-bold text-sm shadow-xl shadow-slate-900/10 active:scale-95 transition-all"
+            className="w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-950 font-bold text-sm shadow-xl shadow-slate-900/10 active:scale-95 transition-all cursor-pointer"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.14z"
@@ -152,46 +190,7 @@ export default function HomePage() {
             </svg>
             <span>Mit Google anmelden</span>
           </button>
-
-          <button
-            onClick={() => setAuthModalOpen(true)}
-            className="w-full py-3.5 px-6 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-300 font-semibold text-sm hover:bg-slate-50 dark:hover:bg-neutral-800 transition-all"
-          >
-            Gast-Optionen
-          </button>
         </div>
-
-        {/* Pillars preview */}
-        <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-5 w-full text-left">
-          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900/60 border border-slate-200 dark:border-neutral-800 shadow-sm">
-            <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400 mb-2" />
-            <h4 className="text-xs font-bold text-slate-900 dark:text-white">Zugangsmanagement</h4>
-            <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-1">
-              Private Projekte sind nur für eingeladene Freunde sichtbar. Öffentliche Projekte für alle Google-User.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900/60 border border-slate-200 dark:border-neutral-800 shadow-sm">
-            <Flame className="w-5 h-5 text-rose-500 dark:text-rose-400 mb-2" />
-            <h4 className="text-xs font-bold text-slate-900 dark:text-white">Swiping-Voting</h4>
-            <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-1">
-              Flixbus, Deutsche Bahn, Booking & Airbnb schnell und ohne Chat-Chaos abstimmen.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900/60 border border-slate-200 dark:border-neutral-800 shadow-sm">
-            <Calendar className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mb-2" />
-            <h4 className="text-xs font-bold text-slate-900 dark:text-white">dnd-kit Timeline</h4>
-            <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-1">
-              Visueller Drag-and-Drop Zeitstrahl für alle Tage eurer gemeinsamen Reise.
-            </p>
-          </div>
-        </div>
-
-        <AuthModal
-          isOpen={authModalOpen}
-          onClose={() => setAuthModalOpen(false)}
-        />
       </div>
     );
   }
@@ -241,13 +240,53 @@ export default function HomePage() {
           <button
             onClick={() => setSettingsModalOpen(true)}
             className="flex items-center justify-center gap-2 px-3.5 py-3 sm:py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 font-semibold text-xs border border-slate-200 dark:border-neutral-700 transition-colors w-full sm:w-auto"
-            title="Einstellungen & Code-Beitritt"
+            title="Einstellungen"
           >
             <Settings className="w-4 h-4 text-slate-500 dark:text-neutral-400" />
             <span>Einstellungen</span>
           </button>
         </div>
       </div>
+
+      {/* Code-Beitritt Bar für angemeldete Nutzer */}
+      <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 shrink-0">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+              Reise per Zugangscode beitreten
+            </h3>
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
+              Gib den 6-stelligen Einladungscode ein, den du von Freunden erhalten hast:
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleQuickJoin} className="flex items-center gap-2 w-full sm:w-auto">
+          <input
+            type="text"
+            value={landingInviteCode}
+            onChange={(e) => setLandingInviteCode(e.target.value.toUpperCase())}
+            placeholder="z.B. BOYS26"
+            className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800 font-mono tracking-wider font-bold text-slate-900 dark:text-white uppercase placeholder:font-sans placeholder:normal-case placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 transition-colors flex-1 sm:w-40"
+          />
+          <button
+            type="submit"
+            disabled={isJoining || !landingInviteCode.trim()}
+            className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <span>{isJoining ? "..." : "Beitreten"}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </form>
+      </div>
+      {joinStatus && (
+        <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 -mt-2 px-1">
+          {joinStatus}
+        </p>
+      )}
 
       {/* SECTION 1: Meine Reisen */}
       <div className="flex flex-col gap-3.5 sm:gap-4">

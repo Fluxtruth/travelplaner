@@ -2,10 +2,12 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useGamification } from "@/context/GamificationContext";
+import { useAuth } from "@/context/AuthContext";
 import { Flame, Sparkles, Award, Trophy, ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function HeaderXpBar() {
+  const { user } = useAuth();
   const { profile, levelInfo, totalStampsCount, xpGainAlert, updateBeerCount } = useGamification();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,16 +24,22 @@ export function HeaderXpBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  if (!user) return null;
+
+  const targetTripUrl = profile.tripId && profile.tripId !== "demo" ? `/trips/${profile.tripId}` : "/";
+
   const handleOpenTimeline = () => {
     setPopoverOpen(false);
     const pathname = typeof window !== "undefined" ? window.location.pathname : "";
     if (pathname.startsWith("/trips/")) {
       window.dispatchEvent(new CustomEvent("boystrip:navigate-tab", { detail: "timeline" }));
-    } else {
-      router.push("/trips/ndzmg2EvmlT2bJxF6QLf");
+    } else if (targetTripUrl !== "/") {
+      router.push(targetTripUrl);
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent("boystrip:navigate-tab", { detail: "timeline" }));
       }, 500);
+    } else {
+      router.push("/");
     }
   };
 
@@ -40,11 +48,13 @@ export function HeaderXpBar() {
     const pathname = typeof window !== "undefined" ? window.location.pathname : "";
     if (pathname.startsWith("/trips/")) {
       window.dispatchEvent(new CustomEvent("boystrip:navigate-tab", { detail: "passport" }));
-    } else {
-      router.push("/trips/ndzmg2EvmlT2bJxF6QLf");
+    } else if (targetTripUrl !== "/") {
+      router.push(targetTripUrl);
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent("boystrip:navigate-tab", { detail: "passport" }));
       }, 500);
+    } else {
+      router.push("/");
     }
   };
 

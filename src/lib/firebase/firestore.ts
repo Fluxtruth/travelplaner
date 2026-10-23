@@ -18,6 +18,7 @@ import {
 import { db } from "./config";
 import {
   Trip,
+  TripStop,
   TravelOption,
   UserVote,
   TimelineItem,
@@ -46,18 +47,21 @@ export async function createTrip(
   startDate = "2026-07-10",
   endDate = "2026-07-19",
   visibility: "private" | "public" = "private",
-  invitedEmails: string[] = []
+  invitedEmails: string[] = [],
+  customStops?: (TripStop | string)[]
 ): Promise<string> {
   const tripRef = doc(collection(db, "trips"));
   const inviteCode = generateInviteCode(6);
 
-  const defaultStops = [
+  const defaultStops: TripStop[] = [
     { id: "stop-1", city: "Berlin", country: "Deutschland", order: 0, startDate: "2026-07-10", endDate: "2026-07-12" },
     { id: "stop-2", city: "Prag", country: "Tschechien", order: 1, startDate: "2026-07-12", endDate: "2026-07-14" },
     { id: "stop-3", city: "Wien", country: "Österreich", order: 2, startDate: "2026-07-14", endDate: "2026-07-17" },
     { id: "stop-4", city: "Neustadt (Dosse)", country: "Deutschland", order: 3, startDate: "2026-07-17", endDate: "2026-07-19" },
     { id: "stop-5", city: "Berlin", country: "Deutschland", order: 4, startDate: "2026-07-19", endDate: "2026-07-19" },
   ];
+
+  const stops = customStops && customStops.length > 0 ? customStops : defaultStops;
 
   const tripData: Omit<Trip, "id"> = {
     name,
@@ -69,7 +73,7 @@ export async function createTrip(
     inviteCode,
     startDate,
     endDate,
-    stops: defaultStops,
+    stops,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -126,6 +130,49 @@ export async function updateTripVisibility(tripId: string, visibility: "private"
     visibility,
     updatedAt: new Date().toISOString(),
   });
+}
+
+/**
+ * Update trip title and optional details (description, dates)
+ */
+export async function updateTripDetails(
+  tripId: string,
+  updates: { 
+    name?: string; 
+    description?: string; 
+    startDate?: string; 
+    endDate?: string;
+    stops?: (TripStop | string)[];
+  }
+): Promise<void> {
+  const tripRef = doc(db, "trips", tripId);
+  const cleanUpdates: Record<string, any> = {
+    updatedAt: new Date().toISOString(),
+  };
+  if (updates.name !== undefined) cleanUpdates.name = updates.name.trim();
+  if (updates.description !== undefined) cleanUpdates.description = updates.description.trim();
+  if (updates.startDate !== undefined) cleanUpdates.startDate = updates.startDate;
+  if (updates.endDate !== undefined) cleanUpdates.endDate = updates.endDate;
+  if (updates.stops !== undefined) cleanUpdates.stops = updates.stops;
+
+  await updateDoc(tripRef, cleanUpdates);
+}
+
+/**
+ * Rename trip (updates trip name in Firestore)
+ */
+export async function updateTripName(tripId: string, name: string): Promise<void> {
+  return updateTripDetails(tripId, { name });
+}
+
+/**
+ * Update trip stops / route in Firestore
+ */
+export async function updateTripStops(
+  tripId: string,
+  stops: (TripStop | string)[]
+): Promise<void> {
+  return updateTripDetails(tripId, { stops });
 }
 
 /**

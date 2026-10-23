@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState, useMemo, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   Trip,
+  TripStop,
   TravelOption,
   TimelineItem,
   UserVote,
@@ -21,6 +22,7 @@ import {
   subscribeToGamification,
   subscribeToExperienceContest,
   recordLocationCheckin,
+  updateTripName,
 } from "@/lib/firebase/firestore";
 import { ActiveUsersPresence } from "@/components/presence/ActiveUsersPresence";
 import { TimelineContainer } from "@/components/timeline/TimelineContainer";
@@ -29,6 +31,7 @@ import { DigitalPassportView } from "@/components/gamification/DigitalPassportVi
 import { findMatchingStamp, calculateLevel } from "@/lib/gamification/catalog";
 import { ShareTripModal } from "@/components/common/ShareTripModal";
 import { ProjectAccessModal } from "@/components/common/ProjectAccessModal";
+import { EditRouteModal } from "@/components/trips/EditRouteModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useGamification } from "@/context/GamificationContext";
 import confetti from "canvas-confetti";
@@ -47,6 +50,11 @@ import {
   UserPlus,
   LogIn,
   Award,
+  Pencil,
+  Check,
+  X,
+  MapPin,
+  ArrowRight,
 } from "lucide-react";
 
 function TripPlanningContent() {
@@ -54,7 +62,7 @@ function TripPlanningContent() {
   const tripId = (params?.tripId as string) || "demo";
   const router = useRouter();
   const { user, signInWithGoogle } = useAuth();
-  const { syncFromProfiles, addXp, profile: contextProfile } = useGamification();
+  const { syncFromProfiles, addXp, profile: contextProfile, updateProfile } = useGamification();
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [options, setOptions] = useState<TravelOption[]>([]);
@@ -68,6 +76,9 @@ function TripPlanningContent() {
   const [gamificationProfiles, setGamificationProfiles] = useState<UserGamificationProfile[]>([]);
   const [contestCandidates, setContestCandidates] = useState<ExperienceContestItem[]>([]);
   const [localCheckins, setLocalCheckins] = useState<Record<string, string>>({});
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
 
   // Listen for tab navigation triggers (e.g. from Header XP Bar popover)
   useEffect(() => {
@@ -370,9 +381,30 @@ function TripPlanningContent() {
   const currentUserId = user?.uid || "guest-user";
   const activeTrip = trip || fallbackTrip;
 
+  const [isRouteModalOpen, setIsRouteModalOpen] = useState(false);
+
+  const routeStops: TripStop[] = useMemo(() => {
+    if (!activeTrip.stops || !Array.isArray(activeTrip.stops) || activeTrip.stops.length === 0) {
+      return [
+        { id: "s1", city: "Berlin", country: "Deutschland", order: 0 },
+        { id: "s2", city: "Prag", country: "Tschechien", order: 1 },
+        { id: "s3", city: "Wien", country: "Österreich", order: 2 },
+        { id: "s4", city: "Neustadt (Dosse)", country: "Deutschland", order: 3 },
+        { id: "s5", city: "Berlin", country: "Deutschland", order: 4 },
+      ];
+    }
+    return activeTrip.stops.map((s, idx) => {
+      if (typeof s === "string") {
+        return { id: `stop-${idx}`, city: s, order: idx };
+      }
+      return { ...s, order: s.order ?? idx };
+    });
+  }, [activeTrip.stops]);
+
   // 5. Subscribe to Gamification & Challenges
   useEffect(() => {
     if (!tripId) return;
+    updateProfile({ tripId });
     const unsubGamification = subscribeToGamification(tripId, (profiles) => {
       setGamificationProfiles(profiles);
       syncFromProfiles(profiles, currentUserId);
@@ -384,7 +416,7 @@ function TripPlanningContent() {
       unsubGamification();
       unsubContest();
     };
-  }, [tripId, currentUserId, syncFromProfiles]);
+  }, [tripId, currentUserId, syncFromProfiles, updateProfile]);
 
   const isOwner = user ? activeTrip.ownerId === user.uid : false;
   const isParticipant = user ? activeTrip.participantIds?.includes(user.uid) || isOwner : false;
@@ -492,6 +524,27 @@ function TripPlanningContent() {
       window.location.reload();
     } catch (err) {
       console.warn("Failed to join public trip:", err);
+    }
+  };
+
+  const handleSaveTitle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = titleDraft.trim();
+    if (!trimmed || trimmed === activeTrip.name) {
+      setIsEditingTitle(false);
+      return;
+    }
+
+    setIsSavingTitle(true);
+    try {
+      // Optimistic update
+      setTrip((prev) => (prev ? { ...prev, name: trimmed } : { ...fallbackTrip, name: trimmed }));
+      await updateTripName(tripId, trimmed);
+    } catch (err) {
+      console.warn("Failed to update trip name:", err);
+    } finally {
+      setIsSavingTitle(false);
+      setIsEditingTitle(false);
     }
   };
 
@@ -612,23 +665,78 @@ function TripPlanningContent() {
             <span>Zurück zu meinen Reisen</span>
           </button>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              {activeTrip.name}
-            </h1>
-
-            {/* Visibility Badge */}
-            <span
-              className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-bold border ${
-                isPublic
-                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
-                  : "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20"
-              }`}
+          {isEditingTitle ? (
+            <form
+              onSubmit={handleSaveTitle}
+              className="flex items-center gap-2 flex-wrap my-1 max-w-2xl w-full"
             >
-              {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-              <span>{isPublic ? "Öffentlich" : "Privat (geschützt)"}</span>
-            </span>
-          </div>
+              <input
+                type="text"
+                autoFocus
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setIsEditingTitle(false);
+                }}
+                disabled={isSavingTitle}
+                placeholder="Reisenamen eingeben..."
+                className="text-base sm:text-2xl font-extrabold text-slate-900 dark:text-white bg-white dark:bg-neutral-900 border-2 border-blue-500 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 flex-1 min-w-[220px] shadow-sm"
+              />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="submit"
+                  disabled={isSavingTitle || !titleDraft.trim()}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+                  title="Speichern (Enter)"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSavingTitle ? "Speichert..." : "Speichern"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingTitle(false)}
+                  disabled={isSavingTitle}
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                  title="Abbrechen (Esc)"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <div className="flex items-center gap-2 group">
+                <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  {activeTrip.name}
+                </h1>
+                {(isParticipant || isOwner) && (
+                  <button
+                    onClick={() => {
+                      setTitleDraft(activeTrip.name);
+                      setIsEditingTitle(true);
+                    }}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors"
+                    title="Trip umbenennen"
+                    aria-label="Trip umbenennen"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Visibility Badge */}
+              <span
+                className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-bold border ${
+                  isPublic
+                    ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
+                    : "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20"
+                }`}
+              >
+                {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                <span>{isPublic ? "Öffentlich" : "Privat (geschützt)"}</span>
+              </span>
+            </div>
+          )}
 
           <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <span>📅 {activeTrip.startDate} bis {activeTrip.endDate}</span>
@@ -666,6 +774,39 @@ function TripPlanningContent() {
             <span className="xs:hidden">Einladen</span>
           </button>
         </div>
+      </div>
+
+      {/* Active Route Bar with Quick Edit */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 sm:px-4 sm:py-2.5 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-sm transition-colors">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 min-w-0">
+          <span className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5 shrink-0">
+            <MapPin className="w-3.5 h-3.5 text-rose-500" />
+            <span>Route ({routeStops.length}):</span>
+          </span>
+          <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
+            {routeStops.map((stop, idx) => (
+              <React.Fragment key={stop.id || idx}>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-neutral-800 text-slate-800 dark:text-neutral-200 text-xs font-bold whitespace-nowrap">
+                  {stop.city}
+                </span>
+                {idx < routeStops.length - 1 && (
+                  <ArrowRight className="w-3 h-3 text-slate-400 dark:text-neutral-600 shrink-0" />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {(isParticipant || isOwner) && (
+          <button
+            onClick={() => setIsRouteModalOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 text-xs font-bold border border-slate-200 dark:border-neutral-700 transition-colors shrink-0 cursor-pointer w-full sm:w-auto"
+            title="Reiseroute und Zwischenstopps anpassen"
+          >
+            <Pencil className="w-3 h-3 text-slate-500" />
+            <span>Route anpassen</span>
+          </button>
+        )}
       </div>
 
       {/* Main Navigation Tabs */}
@@ -768,6 +909,19 @@ function TripPlanningContent() {
           currentUserId={currentUserId}
           isOpen={isAccessModalOpen}
           onClose={() => setIsAccessModalOpen(false)}
+        />
+      )}
+
+      {/* Edit Route Modal */}
+      {isRouteModalOpen && (
+        <EditRouteModal
+          tripId={tripId}
+          isOpen={isRouteModalOpen}
+          onClose={() => setIsRouteModalOpen(false)}
+          initialStops={activeTrip.stops}
+          onStopsUpdated={(newStops) => {
+            setTrip((prev) => (prev ? { ...prev, stops: newStops } : { ...fallbackTrip, stops: newStops }));
+          }}
         />
       )}
     </div>

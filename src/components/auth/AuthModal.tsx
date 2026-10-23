@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { X, LogIn, Sparkles, User, ShieldCheck, AlertCircle } from "lucide-react";
+import { X, Sparkles, ShieldCheck, AlertCircle } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -14,12 +14,10 @@ interface AuthModalProps {
 export function AuthModal({
   isOpen,
   onClose,
-  title = "Anmelden bei Boystrip",
-  description = "Melde dich mit Google an, um Reisen mit deinen Freunden in Echtzeit zu planen und abzustimmen.",
+  title = "Anmelden bei Phil's Travelplaner",
+  description = "Melde dich mit deinem Google-Konto an, um Reisen mit deinen Freunden in Echtzeit zu planen und abzustimmen.",
 }: AuthModalProps) {
-  const { signInWithGoogle, signInAsGuest } = useAuth();
-  const [guestName, setGuestName] = useState("");
-  const [showGuestInput, setShowGuestInput] = useState(false);
+  const { signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,21 +38,6 @@ export function AuthModal({
       } else {
         setError(err?.message || "Fehler bei der Google-Anmeldung.");
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGuestLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      await signInAsGuest(guestName.trim() || undefined);
-      onClose();
-    } catch (err: any) {
-      console.error("Guest sign-in error:", err);
-      setError("Fehler beim Gast-Login.");
     } finally {
       setLoading(false);
     }
@@ -97,7 +80,7 @@ export function AuthModal({
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-2xl bg-white hover:bg-slate-50 dark:hover:bg-neutral-100 text-slate-900 dark:text-neutral-950 font-bold text-sm border border-slate-200 dark:border-transparent shadow-lg shadow-slate-200/50 dark:shadow-white/10 active:scale-95 transition-all disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-950 font-bold text-sm shadow-xl shadow-slate-900/10 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
           >
             {/* Google SVG Logo */}
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -120,53 +103,6 @@ export function AuthModal({
             </svg>
             <span>{loading ? "Verbinde mit Google..." : "Mit Google anmelden"}</span>
           </button>
-
-          {/* Divider */}
-          <div className="relative py-2 flex items-center justify-center">
-            <div className="w-full border-t border-slate-200 dark:border-neutral-800" />
-            <span className="absolute px-3 bg-white dark:bg-neutral-900 text-[11px] font-semibold text-slate-400 dark:text-neutral-500 uppercase tracking-wider">
-              oder
-            </span>
-          </div>
-
-          {/* Guest Access Option */}
-          {!showGuestInput ? (
-            <button
-              onClick={() => setShowGuestInput(true)}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-neutral-950 dark:hover:bg-neutral-800/80 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-300 font-semibold text-xs transition-all"
-            >
-              <User className="w-4 h-4 text-slate-500 dark:text-neutral-400" />
-              <span>Als Gast beitreten (ohne Google)</span>
-            </button>
-          ) : (
-            <form onSubmit={handleGuestLogin} className="space-y-3 pt-1">
-              <input
-                type="text"
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                placeholder="Dein Name (z.B. Alex)"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-neutral-950 border border-slate-300 dark:border-neutral-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowGuestInput(false)}
-                  className="flex-1 py-2 px-3 rounded-xl bg-slate-100 dark:bg-neutral-950 text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white text-xs font-medium border border-slate-200 dark:border-neutral-800 transition-colors"
-                >
-                  Zurück
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-white text-xs font-semibold border border-transparent dark:border-neutral-700 transition-colors"
-                >
-                  {loading ? "Wird gestartet..." : "Als Gast starten"}
-                </button>
-              </div>
-            </form>
-          )}
         </div>
 
         {/* Security badge note */}
