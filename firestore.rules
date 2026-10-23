@@ -1,0 +1,217 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (matches auth.uid)
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - email: string (required, private PII)
+    //   - displayName: string (required, 1-100 chars)
+    //   - photoURL: string (optional, URL format)
+    //   - createdAt: timestamp (required, immutable)
+    //   - lastActiveAt: timestamp (optional)
+    //
+    // Collection: users_public
+    // Document ID: userId (matches auth.uid)
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - displayName: string (required, 1-100 chars)
+    //   - photoURL: string (optional)
+    //
+    // Collection: trips
+    // Document ID: tripId
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, 1-120 chars)
+    //   - description: string (optional, max 500 chars)
+    //   - ownerId: string (required, immutable)
+    //   - participantIds: list of strings (required, max 50 UIDs)
+    //   - invitedEmails: list of strings (optional)
+    //   - visibility: string ('private' | 'public', default 'private')
+    //   - inviteCode: string (required, 4-32 chars)
+    //   - startDate: string (optional, format YYYY-MM-DD)
+    //   - endDate: string (optional, format YYYY-MM-DD)
+    //   - stops: list of maps/strings (optional, max 20 stops)
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (required)
+    //
+    // Subcollection: trips/{tripId}/presence/{userId}
+    // Fields:
+    //   - userId: string (required, matches auth.uid)
+    //   - displayName: string (required, 1-100 chars)
+    //   - photoURL: string (optional)
+    //   - activeView: string (required, 'timeline' | 'voting' | 'matches' | 'overview')
+    //   - lastSeen: timestamp (required)
+    //
+    // Subcollection: trips/{tripId}/options/{optionId}
+    // Fields:
+    //   - id: string (required)
+    //   - tripId: string (required)
+    //   - category: string ('transport' | 'accommodation' | 'activity')
+    //   - provider: string ('flixbus' | 'bahn' | 'booking' | 'airbnb' | 'custom')
+    //   - title: string (required, 1-150 chars)
+    //   - description: string (optional, max 1000 chars)
+    //   - priceEstimate: number (positive)
+    //   - currency: string (max 5 chars)
+    //   - fromLocation: string (optional)
+    //   - toLocation: string (optional)
+    //   - dates: string (optional)
+    //   - imageUrl: string (optional)
+    //   - createdBy: string (required, matches auth.uid)
+    //   - yesVotes: number (positive or zero)
+    //   - noVotes: number (positive or zero)
+    //   - createdAt: timestamp (required)
+    //
+    // Subcollection: trips/{tripId}/votes/{voteId}
+    // Fields:
+    //   - id: string (required)
+    //   - tripId: string (required)
+    //   - optionId: string (required)
+    //   - userId: string (required, matches auth.uid)
+    //   - decision: string ('yes' | 'no')
+    //   - createdAt: timestamp (required)
+    //
+    // Subcollection: trips/{tripId}/timeline_items/{itemId}
+    // Fields:
+    //   - id: string (required)
+    //   - tripId: string (required)
+    //   - dayId: string (required)
+    //   - stopCity: string (optional)
+    //   - title: string (required, 1-150 chars)
+    //   - type: string ('transport' | 'accommodation' | 'activity' | 'food')
+    //   - time: string (optional, max 50 chars)
+    //   - order: number (order index)
+    //   - optionId: string (optional)
+    //   - notes: string (optional, max 500 chars)
+    //   - createdBy: string (required)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isTripParticipant(tripData) {
+      return isAuthenticated() && (
+        request.auth.uid == tripData.ownerId ||
+        request.auth.uid in tripData.participantIds
+      );
+    }
+
+    function getTrip(tripId) {
+      return get(/databases/$(database)/documents/trips/$(tripId)).data;
+    }
+
+    function canAccessTrip(tripId) {
+      let tripData = getTrip(tripId);
+      return isAuthenticated() && (
+        (tripData.visibility == 'public') ||
+        isTripParticipant(tripData)
+      );
+    }
+
+    // --- Users Collection (Private, PII Protected) ---
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // --- Users Public Profile Collection ---
+    match /users_public/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // --- Trips Collection (Access Control & Visibility) ---
+    match /trips/{tripId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        resource.data.visibility == 'public' ||
+        request.auth.uid == resource.data.ownerId ||
+        request.auth.uid in resource.data.participantIds ||
+        // Allow query by inviteCode
+        request.query.limit <= 1
+      );
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.resource.data.participantIds.hasAny([request.auth.uid]) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 120;
+
+      allow update: if isAuthenticated() && (
+        // Owner can update all project settings (name, visibility, invite emails, etc.)
+        (resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == resource.data.ownerId) ||
+        // Collaborator can join trip by adding their own UID to participantIds
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds', 'updatedAt']) &&
+          request.resource.data.participantIds.hasAll(resource.data.participantIds) &&
+          request.resource.data.participantIds.hasAny([request.auth.uid])
+        )
+      );
+
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+
+      // --- Presence Subcollection ---
+      match /presence/{userId} {
+        allow read: if isAuthenticated() && canAccessTrip(tripId);
+        allow write: if isOwner(userId) && canAccessTrip(tripId);
+      }
+
+      // --- Options Subcollection (Transport / Accommodation / Activities) ---
+      match /options/{optionId} {
+        allow read: if isAuthenticated() && canAccessTrip(tripId);
+        allow create: if isAuthenticated() && canAccessTrip(tripId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.title is string &&
+          request.resource.data.title.size() > 0 &&
+          request.resource.data.title.size() <= 150;
+        
+        allow update: if isAuthenticated() && canAccessTrip(tripId);
+        allow delete: if isAuthenticated() && canAccessTrip(tripId) && (
+          resource.data.createdBy == request.auth.uid ||
+          getTrip(tripId).ownerId == request.auth.uid
+        );
+      }
+
+      // --- Votes Subcollection ---
+      match /votes/{voteId} {
+        allow read: if isAuthenticated() && canAccessTrip(tripId);
+        allow create, update: if isAuthenticated() && canAccessTrip(tripId) &&
+          request.resource.data.userId == request.auth.uid &&
+          (request.resource.data.decision == 'yes' || request.resource.data.decision == 'no');
+        allow delete: if isAuthenticated() && canAccessTrip(tripId) &&
+          resource.data.userId == request.auth.uid;
+      }
+
+      // --- Timeline Items Subcollection ---
+      match /timeline_items/{itemId} {
+        allow read: if isAuthenticated() && canAccessTrip(tripId);
+        allow create: if isAuthenticated() && canAccessTrip(tripId) &&
+          request.resource.data.title is string &&
+          request.resource.data.title.size() > 0 &&
+          request.resource.data.title.size() <= 150;
+        allow update: if isAuthenticated() && canAccessTrip(tripId);
+        allow delete: if isAuthenticated() && canAccessTrip(tripId);
+      }
+
+      // --- Gamification & Passport Subcollection ---
+      match /gamification/{docId} {
+        allow read: if isAuthenticated() && canAccessTrip(tripId);
+        allow write: if isAuthenticated() && canAccessTrip(tripId);
+      }
+    }
+  }
+}
