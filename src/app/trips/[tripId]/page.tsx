@@ -96,24 +96,18 @@ function TripPlanningContent() {
   const [inputCode, setInputCode] = useState("");
   const [joinStatus, setJoinStatus] = useState<string | null>(null);
 
-  // Fallback demo trip object if offline or waiting for Firestore
+  // Fallback trip placeholder while loading Firestore
   const fallbackTrip: Trip = {
     id: tripId,
-    name: "Boys-Trip nach Prag, Wien und Neustadt Dosse",
-    description: "Gemeinsamer Sommer-Roadtrip der Boys nach Prag, Wien und Neustadt (Dosse).",
+    name: "Reise laden...",
+    description: "",
     ownerId: user?.uid || "guest-owner",
     participantIds: [user?.uid || "guest-owner"],
     visibility: "private",
-    inviteCode: "BOYS26",
-    startDate: "2026-07-10",
-    endDate: "2026-07-19",
-    stops: [
-      { id: "s1", city: "Berlin", country: "Deutschland", order: 0 },
-      { id: "s2", city: "Prag", country: "Tschechien", order: 1 },
-      { id: "s3", city: "Wien", country: "Österreich", order: 2 },
-      { id: "s4", city: "Neustadt (Dosse)", country: "Deutschland", order: 3 },
-      { id: "s5", city: "Berlin", country: "Deutschland", order: 4 },
-    ],
+    inviteCode: "TRIP",
+    startDate: "",
+    endDate: "",
+    stops: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -122,7 +116,9 @@ function TripPlanningContent() {
   useEffect(() => {
     if (!tripId) return;
     const unsubscribe = subscribeToTrip(tripId, (data) => {
-      setTrip(data || fallbackTrip);
+      if (data) {
+        setTrip(data);
+      }
       setLoadingTrip(false);
     });
     return () => unsubscribe();
@@ -132,65 +128,7 @@ function TripPlanningContent() {
   useEffect(() => {
     if (!tripId) return;
     const unsubscribe = subscribeToOptions(tripId, (data) => {
-      if (data && data.length > 0) {
-        setOptions(data);
-      } else {
-        setOptions([
-          {
-            id: "opt-1",
-            tripId,
-            category: "transport",
-            provider: "flixbus",
-            title: "Flixbus: Berlin ZOB -> Prag ÚAN Florenc",
-            description: "Direktverbindung ohne Umstieg, WLAN & Steckdose. Spart Reisebudget!",
-            priceEstimate: 19.99,
-            currency: "EUR",
-            fromLocation: "Berlin ZOB",
-            toLocation: "Prag Florenc",
-            dates: "12. Juli 2026, 08:30 - 13:15",
-            imageUrl: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&auto=format&fit=crop&q=80",
-            createdBy: user?.uid || "system",
-            yesVotes: 2,
-            noVotes: 0,
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: "opt-2",
-            tripId,
-            category: "transport",
-            provider: "bahn",
-            title: "Deutsche Bahn EC: Berlin Hbf -> Prag hl.n.",
-            description: "Entspannte Zugfahrt durchs Elbtal mit Bordbistro und Panorama.",
-            priceEstimate: 34.9,
-            currency: "EUR",
-            fromLocation: "Berlin Hbf",
-            toLocation: "Prag hl.n.",
-            dates: "12. Juli 2026, 09:16 - 13:35",
-            imageUrl: "https://images.unsplash.com/photo-1474487548417-781cb71495f3?w=800&auto=format&fit=crop&q=80",
-            createdBy: user?.uid || "system",
-            yesVotes: 1,
-            noVotes: 0,
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: "opt-3",
-            tripId,
-            category: "accommodation",
-            provider: "airbnb",
-            title: "Design Loft Prag Altstadt (Platz für 6)",
-            description: "Großes Penthouse mit Dachterrasse nur 300m von der Karlsbrücke.",
-            priceEstimate: 65.0,
-            currency: "EUR",
-            fromLocation: "Prag 1, Altstadt",
-            dates: "12. - 14. Juli 2026 (2 Nächte)",
-            imageUrl: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80",
-            createdBy: user?.uid || "system",
-            yesVotes: 2,
-            noVotes: 0,
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-      }
+      setOptions(data || []);
     });
     return () => unsubscribe();
   }, [tripId, user]);
@@ -208,172 +146,7 @@ function TripPlanningContent() {
   useEffect(() => {
     if (!tripId) return;
     const unsubscribe = subscribeToTimelineItems(tripId, (data) => {
-      if (data && data.length > 0) {
-        setTimelineItems(data);
-      } else {
-        setTimelineItems([
-          {
-            id: "item-pool-1",
-            tripId,
-            dayId: "pool",
-            stopCity: "Prag",
-            title: "Brauereitour & Bierverkostung Pilsner Urquell",
-            type: "activity",
-            time: "15:30 - 17:30",
-            location: "Pilsen / Prag Zentrum",
-            url: "https://www.prazdrojvisit.cz/de/",
-            imageUrl: "https://images.unsplash.com/photo-1518173946687-a4c8a383392e?w=600&auto=format&fit=crop&q=80",
-            order: 0,
-            notes: "Tickets müssen vorab online reserviert werden",
-            createdBy: user?.uid || "system",
-            votes: { [user?.uid || "guest"]: "up" },
-            timeProposals: [
-              {
-                id: "tp-1",
-                time: "15:30",
-                proposedBy: user?.uid || "system",
-                proposerName: "Alex",
-                votes: [user?.uid || "guest", "buddy-1"],
-                createdAt: new Date().toISOString(),
-              },
-              {
-                id: "tp-2",
-                time: "17:00",
-                proposedBy: "buddy-2",
-                proposerName: "Basti",
-                votes: ["buddy-2"],
-                createdAt: new Date().toISOString(),
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "item-pool-2",
-            tripId,
-            dayId: "pool",
-            stopCity: "Prag",
-            title: "Hemingway Bar Prag (Cocktails & Rum)",
-            type: "bar",
-            time: "21:30 - 01:00",
-            location: "Karoliny Světlé 26, Prag 1",
-            url: "https://www.hemingwaybar.cz",
-            imageUrl: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&auto=format&fit=crop&q=80",
-            order: 1,
-            notes: "Legendäre Cocktailbar, Tisch frühzeitig sichern",
-            createdBy: user?.uid || "system",
-            votes: { [user?.uid || "guest"]: "up" },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "item-1",
-            tripId,
-            dayId: "day-1",
-            stopCity: "Berlin",
-            title: "Treffpunkt am Brandenburger Tor & Pre-Drinks",
-            type: "timeslot",
-            time: "18:00 - 21:00",
-            location: "Pariser Platz, Berlin",
-            url: "https://maps.google.com/?q=Brandenburger+Tor+Berlin",
-            imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&auto=format&fit=crop&q=80",
-            order: 0,
-            notes: "Koffer vorher deponieren, Bierchen mitbringen",
-            createdBy: user?.uid || "system",
-            votes: { [user?.uid || "guest"]: "up" },
-            timeProposals: [
-              {
-                id: "tp-3",
-                time: "18:00",
-                proposedBy: user?.uid || "system",
-                proposerName: "Alex",
-                votes: [user?.uid || "guest"],
-                createdAt: new Date().toISOString(),
-              },
-              {
-                id: "tp-4",
-                time: "19:00",
-                proposedBy: "buddy-1",
-                proposerName: "Lukas",
-                votes: ["buddy-1", "buddy-2"],
-                createdAt: new Date().toISOString(),
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "item-2",
-            tripId,
-            dayId: "day-2",
-            stopCity: "Berlin -> Prag",
-            title: "Fahrt nach Prag (DB EC 173)",
-            type: "transport",
-            time: "09:16 - 13:35",
-            location: "Berlin Hbf -> Prag hl.n.",
-            url: "https://www.bahn.de",
-            imageUrl: "https://images.unsplash.com/photo-1474487548417-781cb71495f3?w=600&auto=format&fit=crop&q=80",
-            order: 0,
-            provider: "bahn",
-            createdBy: user?.uid || "system",
-            votes: { [user?.uid || "guest"]: "up" },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "item-3",
-            tripId,
-            dayId: "day-2",
-            stopCity: "Prag",
-            title: "Check-in Airbnb Altstadt Penthouse",
-            type: "accommodation",
-            time: "14:30 - 15:30",
-            location: "Prag 1, Altstadt",
-            url: "https://www.airbnb.de/rooms/sample",
-            imageUrl: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&auto=format&fit=crop&q=80",
-            order: 1,
-            provider: "airbnb",
-            createdBy: user?.uid || "system",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "item-4",
-            tripId,
-            dayId: "day-3",
-            stopCity: "Prag",
-            title: "Abendessen: Restaurant Lokál Dlouhááá",
-            type: "restaurant",
-            time: "19:30 - 22:00",
-            location: "Dlouhá 33, Prag 1",
-            url: "https://maps.google.com/?q=Lokal+Dlouha+Prag",
-            imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80",
-            order: 0,
-            notes: "Frisches Pilsner Urquell & böhmisches Gulasch",
-            createdBy: user?.uid || "system",
-            votes: { [user?.uid || "guest"]: "up" },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "item-5",
-            tripId,
-            dayId: "day-3",
-            stopCity: "Prag",
-            title: "Prager Burg & Karlsbrücke Sunset Walk",
-            type: "culture",
-            time: "17:00 - 19:00",
-            location: "Hradčany, Prag",
-            url: "https://www.hrad.cz/de",
-            imageUrl: "https://images.unsplash.com/photo-1513805959324-96eb66ca8713?w=600&auto=format&fit=crop&q=80",
-            order: 1,
-            notes: "Beste Aussicht auf die Stadt zum Sonnenuntergang",
-            createdBy: user?.uid || "system",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ]);
-      }
+      setTimelineItems(data || []);
     });
     return () => unsubscribe();
   }, [tripId, user]);
@@ -385,13 +158,7 @@ function TripPlanningContent() {
 
   const routeStops: TripStop[] = useMemo(() => {
     if (!activeTrip.stops || !Array.isArray(activeTrip.stops) || activeTrip.stops.length === 0) {
-      return [
-        { id: "s1", city: "Berlin", country: "Deutschland", order: 0 },
-        { id: "s2", city: "Prag", country: "Tschechien", order: 1 },
-        { id: "s3", city: "Wien", country: "Österreich", order: 2 },
-        { id: "s4", city: "Neustadt (Dosse)", country: "Deutschland", order: 3 },
-        { id: "s5", city: "Berlin", country: "Deutschland", order: 4 },
-      ];
+      return [];
     }
     return activeTrip.stops.map((s, idx) => {
       if (typeof s === "string") {
@@ -739,7 +506,9 @@ function TripPlanningContent() {
           )}
 
           <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <span>📅 {activeTrip.startDate} bis {activeTrip.endDate}</span>
+            <span>
+              📅 {activeTrip.startDate && activeTrip.endDate ? `${activeTrip.startDate} bis ${activeTrip.endDate}` : activeTrip.startDate || "Zeitraum noch offen"}
+            </span>
             <span className="text-slate-300 dark:text-neutral-600">•</span>
             <span className="font-mono text-slate-700 dark:text-neutral-300 font-semibold">
               Code: {activeTrip.inviteCode}
@@ -783,18 +552,24 @@ function TripPlanningContent() {
             <MapPin className="w-3.5 h-3.5 text-rose-500" />
             <span>Route ({routeStops.length}):</span>
           </span>
-          <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
-            {routeStops.map((stop, idx) => (
-              <React.Fragment key={stop.id || idx}>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-neutral-800 text-slate-800 dark:text-neutral-200 text-xs font-bold whitespace-nowrap">
-                  {stop.city}
-                </span>
-                {idx < routeStops.length - 1 && (
-                  <ArrowRight className="w-3 h-3 text-slate-400 dark:text-neutral-600 shrink-0" />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+          {routeStops.length > 0 ? (
+            <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
+              {routeStops.map((stop, idx) => (
+                <React.Fragment key={stop.id || idx}>
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-neutral-800 text-slate-800 dark:text-neutral-200 text-xs font-bold whitespace-nowrap">
+                    {stop.city}
+                  </span>
+                  {idx < routeStops.length - 1 && (
+                    <ArrowRight className="w-3 h-3 text-slate-400 dark:text-neutral-600 shrink-0" />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          ) : (
+            <span className="text-xs text-slate-400 dark:text-neutral-500 italic">
+              Noch keine Zwischenstopps festgelegt
+            </span>
+          )}
         </div>
 
         {(isParticipant || isOwner) && (

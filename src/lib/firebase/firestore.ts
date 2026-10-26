@@ -38,17 +38,18 @@ import { generateInviteCode } from "@/lib/utils";
 // ===============================================================
 
 /**
- * Creates a new trip with default route (Berlin - Prag - Wien - Nürnberg - Berlin)
+ * Creates a new trip. If seedDemoData is true, demo stops and sample items are seeded.
  */
 export async function createTrip(
   ownerId: string,
   name: string,
   description?: string,
-  startDate = "2026-07-10",
-  endDate = "2026-07-19",
+  startDate = "",
+  endDate = "",
   visibility: "private" | "public" = "private",
   invitedEmails: string[] = [],
-  customStops?: (TripStop | string)[]
+  customStops?: (TripStop | string)[],
+  seedDemoData = false
 ): Promise<string> {
   const tripRef = doc(collection(db, "trips"));
   const inviteCode = generateInviteCode(6);
@@ -61,18 +62,18 @@ export async function createTrip(
     { id: "stop-5", city: "Berlin", country: "Deutschland", order: 4, startDate: "2026-07-19", endDate: "2026-07-19" },
   ];
 
-  const stops = customStops && customStops.length > 0 ? customStops : defaultStops;
+  const stops = customStops !== undefined ? customStops : (seedDemoData ? defaultStops : []);
 
   const tripData: Omit<Trip, "id"> = {
     name,
-    description: description || "Gemeinsame Reiseplanung & Abstimmung",
+    description: description || "",
     ownerId,
     participantIds: [ownerId],
     invitedEmails,
     visibility, // "private" (default, invitation required) or "public"
     inviteCode,
-    startDate,
-    endDate,
+    startDate: startDate || "",
+    endDate: endDate || "",
     stops,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -80,8 +81,10 @@ export async function createTrip(
 
   await setDoc(tripRef, { ...tripData, id: tripRef.id });
 
-  // Seed initial sample options for voting & timeline demonstration
-  await seedInitialTripData(tripRef.id, ownerId);
+  // Only seed sample options & timeline items if explicitly requested (e.g. demo trip)
+  if (seedDemoData) {
+    await seedInitialTripData(tripRef.id, ownerId);
+  }
 
   return tripRef.id;
 }
@@ -404,6 +407,32 @@ export async function addTravelOption(tripId: string, option: Omit<TravelOption,
 
   await setDoc(optionRef, newOption);
   return optionRef.id;
+}
+
+/**
+ * Update an existing travel option (title, priceEstimate, description, imageUrl, etc.)
+ */
+export async function updateTravelOption(
+  tripId: string,
+  optionId: string,
+  updates: Partial<Omit<TravelOption, "id" | "tripId" | "createdAt">>
+): Promise<void> {
+  const optionRef = doc(db, "trips", tripId, "options", optionId);
+  await updateDoc(optionRef, {
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Delete a travel option
+ */
+export async function deleteTravelOption(
+  tripId: string,
+  optionId: string
+): Promise<void> {
+  const optionRef = doc(db, "trips", tripId, "options", optionId);
+  await deleteDoc(optionRef);
 }
 
 // ===============================================================
@@ -1011,43 +1040,7 @@ export function subscribeToExperienceContest(
       const data = snap.data();
       onUpdate(data.candidates || []);
     } else {
-      // Default initial candidates from the Boystrip route
-      const initialCandidates: ExperienceContestItem[] = [
-        {
-          id: "exp-1",
-          title: "Pilsner Urquell Brauereitour & Bierkeller",
-          city: "Prag",
-          category: "Aktivität",
-          imageUrl: "https://images.unsplash.com/photo-1518173946687-a4c8a383392e?w=600&auto=format&fit=crop&q=80",
-          votes: ["sample-user-1"],
-        },
-        {
-          id: "exp-2",
-          title: "Karlsbrücke Sunset Walk mit Live-Musik",
-          city: "Prag",
-          category: "Kultur",
-          imageUrl: "https://images.unsplash.com/photo-1513805959324-96eb66ca8713?w=600&auto=format&fit=crop&q=80",
-          votes: ["sample-user-2"],
-        },
-        {
-          id: "exp-3",
-          title: "Rooftop Cocktails im Hemingway Bar Prag",
-          city: "Prag",
-          category: "Bar & Nachtleben",
-          imageUrl: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&auto=format&fit=crop&q=80",
-          votes: [],
-        },
-        {
-          id: "exp-4",
-          title: "Kaiserburg Panorama & Nürnberger Bratwurst",
-          city: "Nürnberg",
-          category: "Kultur & Food",
-          imageUrl: "https://images.unsplash.com/photo-1565008447742-97f6f38c985c?w=600&auto=format&fit=crop&q=80",
-          votes: [],
-        },
-      ];
-      setDoc(contestDocRef, { candidates: initialCandidates }).catch(() => {});
-      onUpdate(initialCandidates);
+      onUpdate([]);
     }
   });
 }

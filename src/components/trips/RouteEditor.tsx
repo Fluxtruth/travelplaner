@@ -67,7 +67,6 @@ export function RouteEditor({
   };
 
   const handleRemoveStop = (id: string) => {
-    if (stops.length <= 1) return;
     const updated = stops.filter((s) => s.id !== id).map((s, idx) => ({ ...s, order: idx }));
     onChange(updated);
   };
@@ -161,98 +160,105 @@ export function RouteEditor({
           </label>
 
           <div className="space-y-2">
-            {stops.map((stop, index) => {
-              const isFirst = index === 0;
-              const isLast = index === stops.length - 1;
-              const isEditing = editingStopId === stop.id;
+            {stops.length === 0 ? (
+              <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-neutral-800 text-center">
+                <p className="text-xs text-slate-400 dark:text-neutral-500">
+                  Noch keine Stationen hinzugefügt. Trage unten deine Zwischenstopps ein.
+                </p>
+              </div>
+            ) : (
+              stops.map((stop, index) => {
+                const isFirst = index === 0;
+                const isLast = index === stops.length - 1;
+                const isEditing = editingStopId === stop.id;
 
-              return (
-                <div
-                  key={stop.id}
-                  className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-sm transition-all hover:border-slate-300 dark:hover:border-neutral-700"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-300 text-xs font-mono font-bold flex items-center justify-center shrink-0">
-                      {index + 1}
-                    </span>
+                return (
+                  <div
+                    key={stop.id}
+                    className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-sm transition-all hover:border-slate-300 dark:hover:border-neutral-700"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-300 text-xs font-mono font-bold flex items-center justify-center shrink-0">
+                        {index + 1}
+                      </span>
 
-                    {isEditing ? (
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                        <input
-                          type="text"
-                          value={editCityDraft}
-                          onChange={(e) => setEditCityDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveEdit(stop.id);
-                            if (e.key === "Escape") setEditingStopId(null);
-                          }}
-                          autoFocus
-                          className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-neutral-950 border border-blue-500 text-xs font-bold text-slate-900 dark:text-white focus:outline-none flex-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleSaveEdit(stop.id)}
-                          className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
-                          title="Speichern"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="min-w-0 flex-1 flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
-                          {stop.city}
-                        </span>
-                        {stop.country && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 font-medium">
-                            {stop.country}
+                      {isEditing ? (
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          <input
+                            type="text"
+                            value={editCityDraft}
+                            onChange={(e) => setEditCityDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveEdit(stop.id);
+                              if (e.key === "Escape") setEditingStopId(null);
+                            }}
+                            autoFocus
+                            className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-neutral-950 border border-blue-500 text-xs font-bold text-slate-900 dark:text-white focus:outline-none flex-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEdit(stop.id)}
+                            className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                            title="Speichern"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="min-w-0 flex-1 flex items-center gap-2">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {stop.city}
                           </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleStartEdit(stop)}
-                          className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                          title="Stadtname bearbeiten"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                          {stop.country && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 font-medium">
+                              {stop.country}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(stop)}
+                            className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                            title="Stadtname bearbeiten"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Actions: Reorder and Delete */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      disabled={isFirst}
-                      onClick={() => handleMoveStop(index, "up")}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                      title="Nach oben verschieben"
-                    >
-                      <ChevronUp className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isLast}
-                      onClick={() => handleMoveStop(index, "down")}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                      title="Nach unten verschieben"
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={stops.length <= 1}
-                      onClick={() => handleRemoveStop(stop.id)}
-                      className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 disabled:opacity-30 disabled:pointer-events-none transition-colors ml-0.5"
-                      title="Station entfernen"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {/* Actions: Reorder and Delete */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        disabled={isFirst}
+                        onClick={() => handleMoveStop(index, "up")}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                        title="Nach oben verschieben"
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLast}
+                        onClick={() => handleMoveStop(index, "down")}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                        title="Nach unten verschieben"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveStop(stop.id)}
+                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors ml-0.5 cursor-pointer"
+                        title="Station entfernen"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           {/* Add Stop Input */}

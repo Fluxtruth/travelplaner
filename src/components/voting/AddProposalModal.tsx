@@ -18,6 +18,7 @@ import {
   Wine,
   Landmark,
   Compass,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface AddProposalModalProps {
@@ -270,11 +271,21 @@ export function AddProposalModal({
             )}
           </div>
 
-          {/* Image Preview */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1.5">
-              Vorschau-Bild
+          {/* Image URL & Preview */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300">
+              Bildadresse / Bild-URL (optional)
             </label>
+            <div className="relative">
+              <ImageIcon className="absolute left-3.5 top-3 w-4 h-4 text-indigo-500" />
+              <input
+                type="url"
+                value={customImageUrl}
+                onChange={(e) => setCustomImageUrl(e.target.value)}
+                placeholder="https://... Bild-URL für tatsächliches Bild einfügen"
+                className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
             <div className="relative h-28 w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-950">
               <img
                 src={previewImage}

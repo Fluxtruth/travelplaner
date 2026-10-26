@@ -94,7 +94,7 @@ export function TimelineCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { type: "Item", item },
-    disabled: isOverlay || !isEditMode,
+    disabled: isOverlay,
   });
 
   const style = {
@@ -153,16 +153,16 @@ export function TimelineCard({
       >
         {/* ================= COMPACT ROW ================= */}
         <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 pr-2.5 w-full min-w-0">
-          {isEditMode && !isOverlay && (
-            <button
-              type="button"
+          {!isOverlay && (
+            <div
               {...attributes}
               {...listeners}
               aria-label="Baustein verschieben"
-              className="touch-none self-stretch flex items-center px-0.5 text-slate-300 hover:text-slate-600 dark:text-neutral-600 dark:hover:text-neutral-300 cursor-grab active:cursor-grabbing shrink-0"
+              title="Gedrückt halten & ziehen zum Verschieben"
+              className="touch-none self-stretch flex items-center px-1 text-slate-400 hover:text-indigo-600 dark:text-neutral-500 dark:hover:text-indigo-400 cursor-grab active:cursor-grabbing shrink-0 transition-colors select-none"
             >
-              <GripVertical className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
+              <GripVertical className="w-4 h-4" />
+            </div>
           )}
 
           <button

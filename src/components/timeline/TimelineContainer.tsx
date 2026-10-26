@@ -173,19 +173,62 @@ export function TimelineContainer({
     })
   );
 
-  // Calendar columns definition including the dedicated Bausteine-Pool
+  // Calendar columns definition dynamically generated from trip dates and stops
   const columns: DayColumnData[] = useMemo(() => {
-    const dayDefinitions = [
+    const dayDefinitions: Array<{ id: string; dayNumber: number; dateStr: string; city: string; isPool: boolean }> = [
       { id: "pool", dayNumber: 0, dateStr: "Ideen-Vorrat", city: "Bausteine-Pool", isPool: true },
-      { id: "day-1", dayNumber: 1, dateStr: "Fr., 10. Juli", city: "Berlin", isPool: false },
-      { id: "day-2", dayNumber: 2, dateStr: "Sa., 11. Juli", city: "Berlin → Prag", isPool: false },
-      { id: "day-3", dayNumber: 3, dateStr: "So., 12. Juli", city: "Prag", isPool: false },
-      { id: "day-4", dayNumber: 4, dateStr: "Mo., 13. Juli", city: "Prag → Wien", isPool: false },
-      { id: "day-5", dayNumber: 5, dateStr: "Di., 14. Juli", city: "Wien", isPool: false },
-      { id: "day-6", dayNumber: 6, dateStr: "Mi., 15. Juli", city: "Wien → Neustadt (Dosse)", isPool: false },
-      { id: "day-7", dayNumber: 7, dateStr: "Do., 16. Juli", city: "Neustadt (Dosse)", isPool: false },
-      { id: "day-8", dayNumber: 8, dateStr: "Fr., 17. Juli", city: "Neustadt (Dosse) → Berlin", isPool: false },
     ];
+
+    const stopsList = Array.isArray(trip?.stops)
+      ? trip.stops.map((s) => (typeof s === "string" ? s : s.city))
+      : [];
+
+    if (trip?.startDate && trip?.endDate) {
+      const start = new Date(trip.startDate);
+      const end = new Date(trip.endDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+        const diffDays = Math.min(Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1, 31);
+        for (let i = 0; i < diffDays; i++) {
+          const d = new Date(start);
+          d.setDate(d.getDate() + i);
+          const dateStr = d.toLocaleDateString("de-DE", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          });
+          let cityStr = "";
+          if (stopsList.length > 0) {
+            const stopIdx = Math.min(Math.floor((i / diffDays) * stopsList.length), stopsList.length - 1);
+            cityStr = stopsList[stopIdx] || "";
+          }
+          dayDefinitions.push({
+            id: `day-${i + 1}`,
+            dayNumber: i + 1,
+            dateStr,
+            city: cityStr || `Tag ${i + 1}`,
+            isPool: false,
+          });
+        }
+      }
+    } else if (stopsList.length > 0) {
+      stopsList.forEach((city, idx) => {
+        dayDefinitions.push({
+          id: `day-${idx + 1}`,
+          dayNumber: idx + 1,
+          dateStr: `Station ${idx + 1}`,
+          city,
+          isPool: false,
+        });
+      });
+    } else {
+      dayDefinitions.push({
+        id: "day-1",
+        dayNumber: 1,
+        dateStr: "Tag 1",
+        city: "Start",
+        isPool: false,
+      });
+    }
 
     return dayDefinitions.map((def) => {
       let dayItems = localItems
@@ -201,21 +244,16 @@ export function TimelineContainer({
         items: dayItems,
       };
     });
-  }, [localItems, filterStampedOnly, userCheckins]);
+  }, [trip?.startDate, trip?.endDate, trip?.stops, localItems, filterStampedOnly, userCheckins]);
 
   const availableDays = useMemo(() => {
-    return [
-      { id: "pool", label: "🧩 Bausteine-Pool (Ideen & Vorrat)" },
-      { id: "day-1", label: "Tag 1: Fr., 10. Juli (Berlin)" },
-      { id: "day-2", label: "Tag 2: Sa., 11. Juli (Berlin → Prag)" },
-      { id: "day-3", label: "Tag 3: So., 12. Juli (Prag)" },
-      { id: "day-4", label: "Tag 4: Mo., 13. Juli (Prag → Wien)" },
-      { id: "day-5", label: "Tag 5: Di., 14. Juli (Wien)" },
-      { id: "day-6", label: "Tag 6: Mi., 15. Juli (Wien → Neustadt (Dosse))" },
-      { id: "day-7", label: "Tag 7: Do., 16. Juli (Neustadt (Dosse))" },
-      { id: "day-8", label: "Tag 8: Fr., 17. Juli (Neustadt (Dosse) → Berlin)" },
-    ];
-  }, []);
+    return columns.map((col) => ({
+      id: col.id,
+      label: col.isPool
+        ? "🧩 Bausteine-Pool (Ideen & Vorrat)"
+        : `Tag ${col.dayNumber}: ${col.dateStr}${col.city ? ` (${col.city})` : ""}`,
+    }));
+  }, [columns]);
 
   // Drag and drop event handlers
   const handleDragStart = (event: DragStartEvent) => {
@@ -267,9 +305,14 @@ export function TimelineContainer({
         const overCurrentItem = currentItems[overIndex];
 
         if (activeCurrentItem.dayId !== overCurrentItem.dayId) {
-          activeCurrentItem.dayId = overCurrentItem.dayId;
-          activeCurrentItem.stopCity = overCurrentItem.stopCity;
-          return arrayMove(currentItems, activeIndex, overIndex - 1 < 0 ? 0 : overIndex);
+          const updatedItem = {
+            ...activeCurrentItem,
+            dayId: overCurrentItem.dayId,
+            stopCity: overCurrentItem.stopCity,
+          };
+          const next = [...currentItems];
+          next[activeIndex] = updatedItem;
+          return arrayMove(next, activeIndex, overIndex);
         }
 
         return arrayMove(currentItems, activeIndex, overIndex);
@@ -282,13 +325,18 @@ export function TimelineContainer({
         const activeIndex = currentItems.findIndex((i) => i.id === activeId);
         if (activeIndex === -1) return currentItems;
 
-        const colCity = over.data.current?.city as string | undefined;
-        currentItems[activeIndex].dayId = (over.data.current?.dayId as string) || overId;
-        if (colCity) {
-          currentItems[activeIndex].stopCity = colCity;
-        }
+        const targetDay = (over.data.current?.dayId as string) || overId;
+        if (currentItems[activeIndex].dayId === targetDay) return currentItems;
 
-        return arrayMove(currentItems, activeIndex, activeIndex);
+        const colCity = over.data.current?.city as string | undefined;
+        const updatedItem = {
+          ...currentItems[activeIndex],
+          dayId: targetDay,
+          stopCity: colCity || currentItems[activeIndex].stopCity,
+        };
+        const next = [...currentItems];
+        next[activeIndex] = updatedItem;
+        return next;
       });
     }
   };
@@ -315,6 +363,9 @@ export function TimelineContainer({
 
     if (!over) return;
 
+    const activeId = active.id as string;
+    const currentItem = !isTemplate ? localItems.find((i) => i.id === activeId) : null;
+
     const overId = over.id as string;
     const isOverAColumn = over.data.current?.type === "Column";
     const isOverAnItem = over.data.current?.type === "Item";
@@ -334,6 +385,9 @@ export function TimelineContainer({
         targetDayId = overItem.dayId;
         targetCity = overItem.stopCity || "Reisestopp";
       }
+    } else if (currentItem) {
+      targetDayId = currentItem.dayId;
+      targetCity = currentItem.stopCity || "Reisestopp";
     }
 
     // 1. DROPPED A 3D CATEGORY TEMPLATE ONTO A BUCKET/DAY
@@ -395,8 +449,6 @@ export function TimelineContainer({
     }
 
     // 2. REORDERING / MOVING AN EXISTING TIMELINE ITEM
-    const activeId = active.id as string;
-    const currentItem = localItems.find((i) => i.id === activeId);
     if (!currentItem) return;
 
     // 2a. Dropped onto a day chip in the rail -> append to the end of that day
@@ -417,12 +469,34 @@ export function TimelineContainer({
       return;
     }
 
+    // 2b. Moving within or across columns
     const columnItems = localItems.filter((i) => i.dayId === targetDayId);
-    const itemIndex = columnItems.findIndex((i) => i.id === activeId);
-    const finalOrder = itemIndex >= 0 ? itemIndex : columnItems.length;
+    const activeIndex = columnItems.findIndex((i) => i.id === activeId);
+
+    // Compute fractional / relative timestamp order so Firestore sort matches exact visual position
+    let newOrder = Date.now();
+    if (columnItems.length <= 1) {
+      newOrder = Date.now();
+    } else if (activeIndex === 0) {
+      const nextOrder = columnItems[1]?.order || Date.now();
+      newOrder = nextOrder - 60000;
+    } else if (activeIndex === columnItems.length - 1) {
+      const prevOrder = columnItems[activeIndex - 1]?.order || Date.now();
+      newOrder = prevOrder + 60000;
+    } else if (activeIndex > 0 && activeIndex < columnItems.length - 1) {
+      const prevOrder = columnItems[activeIndex - 1]?.order || 0;
+      const nextOrder = columnItems[activeIndex + 1]?.order || Date.now();
+      newOrder = Math.round((prevOrder + nextOrder) / 2);
+    }
+
+    setLocalItems((prev) =>
+      prev.map((i) =>
+        i.id === activeId ? { ...i, dayId: targetDayId, stopCity: targetCity, order: newOrder } : i
+      )
+    );
 
     try {
-      await updateTimelineItemPosition(trip.id, activeId, targetDayId, finalOrder, targetCity);
+      await updateTimelineItemPosition(trip.id, activeId, targetDayId, newOrder, targetCity);
     } catch (err) {
       console.warn("Failed to persist timeline position to Firestore:", err);
     }

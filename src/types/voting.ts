@@ -37,6 +37,7 @@ export interface TravelOption {
   noVotes: number;
   tags?: string[];
   createdAt: Timestamp | string;
+  updatedAt?: Timestamp | string;
 }
 
 export interface UserVote {

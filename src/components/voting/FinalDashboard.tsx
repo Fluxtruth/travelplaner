@@ -4,12 +4,14 @@ import React, { useState, useMemo } from "react";
 import { TravelOption, Trip, UserVote, VoteDecision, OptionCategory } from "@/types";
 import { addTimelineItem, castVote } from "@/lib/firebase/firestore";
 import { AddProposalModal } from "./AddProposalModal";
+import { EditProposalModal } from "./EditProposalModal";
 import confetti from "canvas-confetti";
 import {
   Sparkles,
   Trophy,
   Check,
   Plus,
+  Pencil,
   ArrowRight,
   Train,
   Building,
@@ -35,6 +37,8 @@ interface FinalDashboardProps {
   currentUserName?: string;
   onGoToTimeline: () => void;
   onOptionAdded?: (option: TravelOption) => void;
+  onOptionUpdated?: (option: TravelOption) => void;
+  onOptionDeleted?: (optionId: string) => void;
 }
 
 export function FinalDashboard({
@@ -45,13 +49,18 @@ export function FinalDashboard({
   currentUserName = "Traveler",
   onGoToTimeline,
   onOptionAdded,
+  onOptionUpdated,
+  onOptionDeleted,
 }: FinalDashboardProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingOption, setEditingOption] = useState<TravelOption | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"votes" | "newest" | "price">("votes");
   const [searchQuery, setSearchQuery] = useState("");
   const [addedItemIds, setAddedItemIds] = useState<Record<string, boolean>>({});
   const [localAddedOptions, setLocalAddedOptions] = useState<TravelOption[]>([]);
+  const [localUpdatedOptions, setLocalUpdatedOptions] = useState<Record<string, TravelOption>>({});
+  const [deletedOptionIds, setDeletedOptionIds] = useState<Set<string>>(new Set());
 
   const handleInternalOptionAdded = (opt: TravelOption) => {
     setLocalAddedOptions((prev) => [opt, ...prev]);
@@ -60,15 +69,37 @@ export function FinalDashboard({
     }
   };
 
+  const handleInternalOptionUpdated = (updated: TravelOption) => {
+    setLocalUpdatedOptions((prev) => ({ ...prev, [updated.id]: updated }));
+    if (onOptionUpdated) {
+      onOptionUpdated(updated);
+    }
+  };
+
+  const handleInternalOptionDeleted = (optionId: string) => {
+    setDeletedOptionIds((prev) => {
+      const next = new Set(prev);
+      next.add(optionId);
+      return next;
+    });
+    if (onOptionDeleted) {
+      onOptionDeleted(optionId);
+    }
+  };
+
   const allOptions = useMemo(() => {
     const combined = [...localAddedOptions, ...options];
     const seen = new Set<string>();
-    return combined.filter((opt) => {
-      if (seen.has(opt.id)) return false;
+    const list: TravelOption[] = [];
+    for (const opt of combined) {
+      if (deletedOptionIds.has(opt.id)) continue;
+      if (seen.has(opt.id)) continue;
       seen.add(opt.id);
-      return true;
-    });
-  }, [localAddedOptions, options]);
+      const updated = localUpdatedOptions[opt.id];
+      list.push(updated ? { ...opt, ...updated } : opt);
+    }
+    return list;
+  }, [localAddedOptions, options, localUpdatedOptions, deletedOptionIds]);
 
   // Local optimistic state for votes so UI reacts immediately (<16ms)
   const [optimisticVotes, setOptimisticVotes] = useState<Record<string, "yes" | "no" | null>>({});
@@ -441,6 +472,11 @@ export function FinalDashboard({
                     "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&auto=format&fit=crop&q=80"
                   }
                   alt={option.title}
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&auto=format&fit=crop&q=80";
+                  }}
                   className="w-full h-full object-cover brightness-[0.85] group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
@@ -458,6 +494,19 @@ export function FinalDashboard({
                     {categoryIcons[option.category] || categoryIcons.custom}
                     <span>{option.category}</span>
                   </div>
+                </div>
+
+                {/* Edit Button in Thumbnail */}
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setEditingOption(option)}
+                    title="Vorschlag bearbeiten (Titel, Preis, Bildadresse, etc.)"
+                    className="px-2.5 py-1 rounded-xl bg-slate-900/80 hover:bg-slate-900 backdrop-blur-md border border-white/20 text-white text-[11px] font-bold flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Pencil className="w-3 h-3 text-blue-400" />
+                    <span>Bearbeiten</span>
+                  </button>
                 </div>
 
                 {/* Price Estimate */}
@@ -485,17 +534,28 @@ export function FinalDashboard({
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
                       {option.provider || "Vorschlag"}
                     </span>
-                    {option.externalUrl && (
-                      <a
-                        href={option.externalUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingOption(option)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
+                        title="Diesen Eintrag bearbeiten"
                       >
-                        <span>Link öffnen</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
+                        <Pencil className="w-3 h-3" />
+                        <span>Bearbeiten</span>
+                      </button>
+                      {option.externalUrl && (
+                        <a
+                          href={option.externalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          <span>Link</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
 
                   <h4 className="text-base font-bold text-slate-900 dark:text-white mb-2 leading-snug">
@@ -612,6 +672,18 @@ export function FinalDashboard({
         currentUserId={currentUserId}
         onProposalAdded={handleInternalOptionAdded}
       />
+
+      {/* Edit Proposal Modal */}
+      {editingOption && (
+        <EditProposalModal
+          isOpen={Boolean(editingOption)}
+          onClose={() => setEditingOption(null)}
+          tripId={trip.id}
+          option={editingOption}
+          onOptionUpdated={handleInternalOptionUpdated}
+          onOptionDeleted={handleInternalOptionDeleted}
+        />
+      )}
     </div>
   );
 }

@@ -173,7 +173,7 @@ export function TimelineDayColumn({
       </div>
 
       {/* ================= BODY ================= */}
-      {!isCollapsed && (items.length > 0 || isEditMode || isOver || isPool) && (
+      {!isCollapsed && (
         <div className="px-1.5 pb-1.5 flex flex-col gap-1.5">
           <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
             {items.map((item) => (
@@ -197,7 +197,7 @@ export function TimelineDayColumn({
             ))}
           </SortableContext>
 
-          {items.length === 0 && (isEditMode || isOver || isPool) && (
+          {items.length === 0 && (
             <button
               type="button"
               onClick={() => onAddItem(dayId, city)}

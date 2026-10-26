@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
-  createTrip,
   joinTripByInviteCode,
   subscribeToUserTrips,
   subscribeToPublicTrips,
@@ -15,7 +14,6 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { SettingsModal } from "@/components/common/SettingsModal";
 import {
   Compass,
-  Sparkles,
   ArrowRight,
   Users,
   Flame,
@@ -43,7 +41,6 @@ export default function HomePage() {
   const [publicTrips, setPublicTrips] = useState<Trip[]>([]);
   const [loadingTrips, setLoadingTrips] = useState(true);
 
-  const [isCreatingDemo, setIsCreatingDemo] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [landingInviteCode, setLandingInviteCode] = useState("");
@@ -79,29 +76,6 @@ export default function HomePage() {
       unsubPublicTrips();
     };
   }, [user]);
-
-  const handleCreateDemoTrip = async () => {
-    if (!user) {
-      setAuthModalOpen(true);
-      return;
-    }
-
-    setIsCreatingDemo(true);
-    try {
-      const tripId = await createTrip(
-        user.uid,
-        "Boys-Trip nach Prag, Wien und Neustadt Dosse",
-        "Gemeinsamer Sommer-Roadtrip nach Prag, Wien und Neustadt (Dosse). Abgestimmt via Voting-Engine.",
-        "2026-07-10",
-        "2026-07-19",
-        "private" // Default: Private access management
-      );
-      router.push(`/trips/${tripId}`);
-    } catch (err) {
-      console.warn("Failed to create trip in Firestore:", err);
-      setIsCreatingDemo(false);
-    }
-  };
 
   const handleQuickJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,16 +200,6 @@ export default function HomePage() {
             <Plus className="w-4 h-4" />
             <span>Neuen Trip anlegen</span>
           </Link>
-
-          <button
-            onClick={handleCreateDemoTrip}
-            disabled={isCreatingDemo}
-            className="flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 font-bold text-xs border border-slate-200 dark:border-neutral-700 transition-colors w-full sm:w-auto"
-            title="Boys-Trip nach Prag, Wien und Neustadt Dosse"
-          >
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span>{isCreatingDemo ? "Wird erstellt..." : "Boys-Trip starten"}</span>
-          </button>
 
           <button
             onClick={() => setSettingsModalOpen(true)}
@@ -383,7 +347,7 @@ export default function HomePage() {
               Noch keine Reisen angelegt
             </h3>
             <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 max-w-sm mx-auto">
-              Starte direkt mit dem Boys-Trip nach Prag, Wien und Neustadt Dosse oder erstelle einen neuen Trip.
+              Erstelle deinen ersten Trip, um mit der Reiseplanung zu beginnen.
             </p>
             <div className="mt-4 flex justify-center gap-3">
               <Link
@@ -392,13 +356,6 @@ export default function HomePage() {
               >
                 Trip erstellen
               </Link>
-              <button
-                onClick={handleCreateDemoTrip}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 font-semibold text-xs border border-slate-200 dark:border-neutral-700 transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Boys-Trip starten</span>
-              </button>
             </div>
           </div>
         )}

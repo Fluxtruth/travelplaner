@@ -24,19 +24,13 @@ export default function NewTripPage() {
   const router = useRouter();
   const { user, signInWithGoogle } = useAuth();
 
-  const [name, setName] = useState("Boys-Trip nach Prag, Wien und Neustadt Dosse");
-  const [description, setDescription] = useState("Roadtrip der Boys nach Prag, Wien und Neustadt (Dosse).");
-  const [startDate, setStartDate] = useState("2026-07-10");
-  const [endDate, setEndDate] = useState("2026-07-19");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [visibility, setVisibility] = useState<TripVisibility>("private");
   const [inviteEmailsText, setInviteEmailsText] = useState("");
-  const [stops, setStops] = useState<TripStop[]>([
-    { id: "stop-1", city: "Berlin", country: "Deutschland", order: 0 },
-    { id: "stop-2", city: "Prag", country: "Tschechien", order: 1 },
-    { id: "stop-3", city: "Wien", country: "Österreich", order: 2 },
-    { id: "stop-4", city: "Neustadt (Dosse)", country: "Deutschland", order: 3 },
-    { id: "stop-5", city: "Berlin", country: "Deutschland", order: 4 },
-  ]);
+  const [stops, setStops] = useState<TripStop[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
@@ -109,7 +103,7 @@ export default function NewTripPage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="z.B. Boys-Trip nach Prag, Wien und Neustadt Dosse"
+              placeholder="z.B. Sommer-Roadtrip nach Italien, Festival-Wochenende..."
               className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
@@ -122,7 +116,7 @@ export default function NewTripPage() {
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Was steht an? Sightseeing, Nachtleben, Roadtrip?"
+              placeholder="Was steht an? Sightseeing, Entspannung, Roadtrip? (optional)"
               className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none"
             />
           </div>
