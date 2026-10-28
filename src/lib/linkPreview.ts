@@ -31,6 +31,11 @@ const CATEGORY_DEFAULT_IMAGES: Record<ActivityType, string[]> = {
     "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80", // Dining food
     "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&auto=format&fit=crop&q=80", // Culinary feast
   ],
+  cafe: [
+    "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&auto=format&fit=crop&q=80", // Cozy coffee shop
+    "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&auto=format&fit=crop&q=80", // Coffee cup with latte art
+    "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&auto=format&fit=crop&q=80", // European cafe outdoor
+  ],
   bar: [
     "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&auto=format&fit=crop&q=80", // Pub / Bar counter
     "https://images.unsplash.com/photo-1572116469696-31de0f17cc34?w=600&auto=format&fit=crop&q=80", // Cocktails

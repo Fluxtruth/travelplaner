@@ -77,6 +77,15 @@ function TripPlanningContent() {
   const [titleDraft, setTitleDraft] = useState("");
   const [isSavingTitle, setIsSavingTitle] = useState(false);
 
+  const totalTripCost = useMemo(() => {
+    return timelineItems.reduce((acc, it) => {
+      if (typeof it.cost === "number" && !isNaN(it.cost) && it.cost > 0) {
+        return acc + it.cost;
+      }
+      return acc;
+    }, 0);
+  }, [timelineItems]);
+
   // Listen for tab navigation triggers (e.g. from Header XP Bar popover)
   useEffect(() => {
     const handleTabNav = (e: Event) => {
@@ -435,6 +444,18 @@ function TripPlanningContent() {
             <span className="font-mono text-slate-700 dark:text-neutral-300 font-semibold">
               Code: {activeTrip.inviteCode}
             </span>
+            {totalTripCost > 0 && (
+              <>
+                <span className="text-slate-300 dark:text-neutral-600">•</span>
+                <span
+                  title="Geschätzter Gesamtpreis aller Aktivitäten dieser Reise"
+                  className="inline-flex items-center gap-1 font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-500/20 text-[11px]"
+                >
+                  <span>💰</span>
+                  <span>~{totalTripCost % 1 === 0 ? totalTripCost : totalTripCost.toFixed(2).replace(".", ",")} € geschätzt</span>
+                </span>
+              </>
+            )}
           </p>
         </div>
 

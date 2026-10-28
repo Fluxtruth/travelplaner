@@ -5,6 +5,7 @@ export type ActivityType =
   | "transport"      // Transport (Flixbus, Deutsche Bahn, Flug, Auto)
   | "accommodation"  // Unterkunft (Hotel, Airbnb, Hostel)
   | "restaurant"     // Restaurant / Essen & Brunch
+  | "cafe"           // Café / Kaffee & Kuchen / Frühstück
   | "bar"            // Bar / Kneipe / Nachtleben / Club
   | "culture"        // Kultur / Museum / Sightseeing / Tour
   | "activity"       // Aktivität / Action / Sport

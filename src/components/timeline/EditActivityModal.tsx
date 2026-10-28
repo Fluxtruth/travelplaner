@@ -19,6 +19,7 @@ import {
   EyeOff,
   Eye,
   AlertCircle,
+  Coins,
 } from "lucide-react";
 
 interface EditActivityModalProps {
@@ -40,6 +41,7 @@ export function EditActivityModal({
   const [title, setTitle] = useState(item.title || "");
   const [type, setType] = useState<ActivityType>(item.type || "activity");
   const [time, setTime] = useState(item.time || "");
+  const [cost, setCost] = useState(item.cost !== undefined ? String(item.cost) : "");
   const [location, setLocation] = useState(item.location || "");
   const [url, setUrl] = useState(item.url || "");
   const [customImageUrl, setCustomImageUrl] = useState(item.imageUrl && item.imageUrl !== "none" ? item.imageUrl : "");
@@ -51,6 +53,7 @@ export function EditActivityModal({
 
   const categories: Array<{ id: ActivityType; label: string }> = [
     { id: "restaurant", label: "Restaurant" },
+    { id: "cafe", label: "Café" },
     { id: "bar", label: "Bar & Drinks" },
     { id: "activity", label: "Aktivität" },
     { id: "culture", label: "Kultur" },
@@ -76,11 +79,15 @@ export function EditActivityModal({
         ? (customImageUrl.trim() || (url.trim() ? getBausteinImage(undefined, url, type) : "") || "")
         : "none";
 
+      const parsedCost = cost.trim() !== "" ? parseFloat(cost.replace(",", ".")) : undefined;
+      const validCost = parsedCost !== undefined && !isNaN(parsedCost) && parsedCost >= 0 ? parsedCost : undefined;
+
       const updates = {
         title: title.trim(),
         type,
         dayId: selectedDayId,
         time: time.trim(),
+        cost: validCost,
         location: location.trim(),
         url: normalizedUrl,
         imageUrl: finalImageUrl,
@@ -94,6 +101,7 @@ export function EditActivityModal({
           ...item,
           ...updates,
           time: time.trim() || undefined,
+          cost: validCost,
           location: location.trim() || undefined,
           url: normalizedUrl || undefined,
           imageUrl: finalImageUrl === "none" ? undefined : (finalImageUrl || undefined),
@@ -194,8 +202,8 @@ export function EditActivityModal({
               </div>
             </div>
 
-            {/* Target column & Time in 2-Column Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Target column, Time & Price in 3-Column Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {availableDays.length > 0 && (
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
@@ -227,26 +235,35 @@ export function EditActivityModal({
                   </label>
                   <span className="text-[9px] text-slate-400">optional</span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  placeholder="14:00 oder 14:00 - 16:30"
+                  className="w-full px-2.5 py-1.5 sm:py-2 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Coins className="w-3 h-3 text-emerald-500" />
+                    Preis / Kosten
+                  </label>
+                  <span className="text-[9px] text-slate-400">optional</span>
+                </div>
+                <div className="relative">
                   <input
                     type="text"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    placeholder="14:00 oder 14:00 - 16:30"
-                    className="flex-1 min-w-0 px-2.5 py-1.5 sm:py-2 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs focus:outline-none focus:border-blue-500 transition-colors"
+                    inputMode="decimal"
+                    value={cost}
+                    onChange={(e) => setCost(e.target.value)}
+                    placeholder="z.B. 25"
+                    className="w-full px-2.5 py-1.5 sm:py-2 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors pr-6"
                   />
-                  <div className="hidden sm:flex gap-1 shrink-0">
-                    {timePresets.slice(0, 3).map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setTime(preset)}
-                        className="px-1.5 py-1 text-[10px] rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors font-mono"
-                      >
-                        {preset}
-                      </button>
-                    ))}
-                  </div>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-neutral-500 pointer-events-none">
+                    €
+                  </span>
                 </div>
               </div>
             </div>

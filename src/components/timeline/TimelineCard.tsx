@@ -37,6 +37,7 @@ export interface CategoryMeta {
 export const CATEGORY_META: Record<string, CategoryMeta> = {
   restaurant: { label: "Essen", tile: "bg-amber-100/80 dark:bg-amber-500/15", dot: "bg-amber-500" },
   food: { label: "Essen", tile: "bg-amber-100/80 dark:bg-amber-500/15", dot: "bg-amber-500" },
+  cafe: { label: "Café", tile: "bg-amber-100/90 dark:bg-amber-600/20", dot: "bg-amber-600" },
   bar: { label: "Bar", tile: "bg-pink-100/80 dark:bg-pink-500/15", dot: "bg-pink-500" },
   activity: { label: "Action", tile: "bg-blue-100/80 dark:bg-blue-500/15", dot: "bg-blue-500" },
   culture: { label: "Kultur", tile: "bg-emerald-100/80 dark:bg-emerald-500/15", dot: "bg-emerald-500" },
@@ -202,8 +203,16 @@ export function TimelineCard({
 
             {/* Title + meta line */}
             <span className="min-w-0 flex-1">
-              <span className="block text-xs sm:text-[13px] font-semibold leading-tight text-slate-900 dark:text-neutral-100 truncate">
-                {item.title}
+              <span className="flex items-center gap-1.5 text-xs sm:text-[13px] font-semibold leading-tight text-slate-900 dark:text-neutral-100 min-w-0">
+                <span className="truncate">{item.title}</span>
+                {item.cost !== undefined && item.cost > 0 && (
+                  <span
+                    title={`Geschätzte Kosten: ${item.cost % 1 === 0 ? item.cost : item.cost.toFixed(2).replace(".", ",")} €`}
+                    className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-mono text-[9.5px] sm:text-[10px] font-bold border border-emerald-200 dark:border-emerald-500/30"
+                  >
+                    {item.cost % 1 === 0 ? item.cost : item.cost.toFixed(2).replace(".", ",")} €
+                  </span>
+                )}
               </span>
               <span className="mt-0.5 flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-slate-500 dark:text-neutral-400 min-w-0 truncate">
                 {item.time && (

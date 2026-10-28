@@ -27,6 +27,15 @@ export const CATEGORY_TEMPLATES: CategoryTemplateDef[] = [
     description: "Essen, Brunch, Lunch oder Dinner",
   },
   {
+    id: "cafe",
+    label: "Café",
+    defaultTitle: "Neues Café / Kaffee & Kuchen",
+    color: "from-amber-600/15 via-orange-600/10 to-amber-600/5",
+    accentClass: "border-amber-500/40 text-amber-800 dark:text-amber-200 hover:border-amber-600 hover:shadow-amber-600/20",
+    badgeBorder: "bg-amber-100/70 dark:bg-amber-600/15 border-amber-400 dark:border-amber-600/30",
+    description: "Kaffee, Kuchen, Frühstück oder Snacks",
+  },
+  {
     id: "bar",
     label: "Bar & Drinks",
     defaultTitle: "Neue Bar & Nightlife",

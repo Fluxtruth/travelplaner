@@ -25,6 +25,116 @@ export function Category3DIcon({
     : "";
 
   switch (type) {
+    case "cafe":
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 64 64"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className={`${hoverClass} ${className}`}
+        >
+          <defs>
+            <radialGradient id="cafe-shadow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#1e293b" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#1e293b" stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="cafe-saucer" x1="12" y1="48" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#fef3c7" />
+              <stop offset="30%" stopColor="#fde68a" />
+              <stop offset="70%" stopColor="#d97706" />
+              <stop offset="100%" stopColor="#92400e" />
+            </linearGradient>
+            <linearGradient id="cafe-saucer-inner" x1="16" y1="47" x2="48" y2="52" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#fffbeb" />
+              <stop offset="100%" stopColor="#fcd34d" />
+            </linearGradient>
+            <linearGradient id="cafe-cup" x1="16" y1="26" x2="48" y2="50" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#fbbf24" />
+              <stop offset="25%" stopColor="#f59e0b" />
+              <stop offset="70%" stopColor="#b45309" />
+              <stop offset="100%" stopColor="#78350f" />
+            </linearGradient>
+            <linearGradient id="cafe-rim" x1="16" y1="24" x2="48" y2="30" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#fef3c7" />
+              <stop offset="50%" stopColor="#fde68a" />
+              <stop offset="100%" stopColor="#d97706" />
+            </linearGradient>
+            <radialGradient id="cafe-liquid" cx="40%" cy="40%" r="55%">
+              <stop offset="0%" stopColor="#a16207" />
+              <stop offset="45%" stopColor="#78350f" />
+              <stop offset="85%" stopColor="#451a03" />
+              <stop offset="100%" stopColor="#290f02" />
+            </radialGradient>
+            <linearGradient id="cafe-handle" x1="46" y1="30" x2="56" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#fde68a" />
+              <stop offset="50%" stopColor="#d97706" />
+              <stop offset="100%" stopColor="#78350f" />
+            </linearGradient>
+            <linearGradient id="cafe-steam" x1="0" y1="24" x2="0" y2="8" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+              <stop offset="60%" stopColor="#fef3c7" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          <ellipse cx="32" cy="56" rx="20" ry="4" fill="url(#cafe-shadow)" />
+          <ellipse cx="32" cy="50" rx="20" ry="5.5" fill="url(#cafe-saucer)" />
+          <ellipse cx="32" cy="49" rx="16" ry="3.8" fill="url(#cafe-saucer-inner)" />
+
+          <path
+            d="M45 32C52 32 55 37 53 42C51 45.5 46.5 45 44 43.5"
+            stroke="url(#cafe-handle)"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+          />
+
+          <path
+            d="M17 28C17 43 23 48 32 48C41 48 47 43 47 28Z"
+            fill="url(#cafe-cup)"
+          />
+
+          <ellipse cx="32" cy="28" rx="15" ry="4.8" fill="url(#cafe-rim)" />
+          <ellipse cx="32" cy="28" rx="13.5" ry="4" fill="url(#cafe-liquid)" />
+
+          <path
+            d="M32 27C30.5 25.5 28.5 26 28.5 27.5C28.5 28.5 30.5 29.5 32 30.5C33.5 29.5 35.5 28.5 35.5 27.5C35.5 26 33.5 25.5 32 27Z"
+            fill="#fffbeb"
+            opacity="0.8"
+          />
+          <circle cx="32" cy="30.8" r="0.8" fill="#fffbeb" opacity="0.6" />
+
+          <path
+            d="M20 30C19.5 37 22 43 26 45C23 43 21 37 22 30Z"
+            fill="#ffffff"
+            opacity="0.35"
+          />
+
+          <path
+            d="M26 22C24 18 27.5 15 25.5 11"
+            stroke="url(#cafe-steam)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M33 21C31 16 35.5 13 33.5 9"
+            stroke="url(#cafe-steam)"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M40 22C38.5 18 41.5 15 40 11.5"
+            stroke="url(#cafe-steam)"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </svg>
+      );
+
     case "restaurant":
     case "food":
       return (

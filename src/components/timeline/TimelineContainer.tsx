@@ -419,6 +419,7 @@ export function TimelineContainer({
 
   const defaultCategoryImages: Record<ActivityType, string> = {
     restaurant: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80",
+    cafe: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&auto=format&fit=crop&q=80",
     bar: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&auto=format&fit=crop&q=80",
     activity: "https://images.unsplash.com/photo-1533105079780-92b9be482077?w=600&auto=format&fit=crop&q=80",
     culture: "https://images.unsplash.com/photo-1513805959324-96eb66ca8713?w=600&auto=format&fit=crop&q=80",
@@ -843,21 +844,46 @@ export function TimelineContainer({
 
   const activeColumn = columns.find((c) => c.id === activeDayId) || columns[0];
 
+  const totalEstimatedCost = useMemo(() => {
+    return localItems.reduce((sum, it) => {
+      if (typeof it.cost === "number" && !isNaN(it.cost) && it.cost > 0) {
+        return sum + it.cost;
+      }
+      return sum;
+    }, 0);
+  }, [localItems]);
+
+  const formattedCost = totalEstimatedCost % 1 === 0 ? totalEstimatedCost : totalEstimatedCost.toFixed(2).replace(".", ",");
+
   return (
     <div className="w-full flex flex-col gap-2">
       {/* ================= SLIM TOOLBAR ================= */}
       <div className="flex items-center justify-between gap-1.5 sm:gap-2">
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-            <span>Reiseplan</span>
-            <span className="relative flex w-2 h-2" title="Live-Sync aktiv">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-              <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
-            </span>
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>Reiseplan</span>
+              <span className="relative flex w-2 h-2" title="Live-Sync aktiv">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+              </span>
+            </h2>
+
+            {totalEstimatedCost > 0 && (
+              <span
+                title="Geschätzter Gesamtpreis aller Aktivitäten dieser Reise"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 text-[10.5px] sm:text-[11px] font-bold font-mono shadow-xs"
+              >
+                <span>💰</span>
+                <span>~{formattedCost} €</span>
+                <span className="text-[9px] font-medium text-emerald-600/80 dark:text-emerald-400/80 hidden xs:inline sm:inline">Gesamt</span>
+              </span>
+            )}
+          </div>
           <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate">
             {plannedCount} eingeplant · {poolCount} Pool
             {draftCount > 0 && <span className="text-amber-600 dark:text-amber-400"> · {draftCount} offen</span>}
+            {totalEstimatedCost > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold"> · {formattedCost} € geschätzt</span>}
           </p>
         </div>
 
