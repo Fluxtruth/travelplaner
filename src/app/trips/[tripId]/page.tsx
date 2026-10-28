@@ -25,8 +25,6 @@ import {
 } from "@/lib/firebase/firestore";
 import { ActiveUsersPresence } from "@/components/presence/ActiveUsersPresence";
 import { TimelineContainer } from "@/components/timeline/TimelineContainer";
-import { FinalDashboard } from "@/components/voting/FinalDashboard";
-import { DigitalPassportView } from "@/components/gamification/DigitalPassportView";
 import { ShareTripModal } from "@/components/common/ShareTripModal";
 import { ProjectAccessModal } from "@/components/common/ProjectAccessModal";
 import { EditRouteModal } from "@/components/trips/EditRouteModal";
@@ -34,9 +32,6 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { useGamification } from "@/context/GamificationContext";
 import confetti from "canvas-confetti";
 import {
-  Calendar,
-  Flame,
-  Trophy,
   Share2,
   Users,
   Compass,
@@ -47,7 +42,6 @@ import {
   Shield,
   UserPlus,
   LogIn,
-  Award,
   Pencil,
   Check,
   X,
@@ -60,7 +54,8 @@ function TripPlanningContent() {
   const tripId = (params?.tripId as string) || "demo";
   const router = useRouter();
   const { user, signInWithGoogle } = useAuth();
-  const { syncFromProfiles, addXp, profile: contextProfile, updateProfile } = useGamification();
+  const currentUserId = user?.uid || "guest-user";
+  const { syncFromProfiles, addXp, profile: contextProfile, updateProfile, updateBeerCount } = useGamification();
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [options, setOptions] = useState<TravelOption[]>([]);
@@ -85,6 +80,15 @@ function TripPlanningContent() {
       return acc;
     }, 0);
   }, [timelineItems]);
+
+  const userRank = useMemo(() => {
+    if (!gamificationProfiles || gamificationProfiles.length === 0) return 1;
+    const sorted = [...gamificationProfiles].sort(
+      (a, b) => (b.beerCount ?? 0) - (a.beerCount ?? 0) || (b.points ?? 0) - (a.points ?? 0)
+    );
+    const index = sorted.findIndex((p) => p.userId === currentUserId);
+    return index !== -1 ? index + 1 : 1;
+  }, [gamificationProfiles, currentUserId]);
 
   // Listen for tab navigation triggers (e.g. from Header XP Bar popover)
   useEffect(() => {
@@ -157,7 +161,6 @@ function TripPlanningContent() {
     return () => unsubscribe();
   }, [tripId, user]);
 
-  const currentUserId = user?.uid || "guest-user";
   const activeTrip = trip || fallbackTrip;
 
   const [isRouteModalOpen, setIsRouteModalOpen] = useState(false);
@@ -461,6 +464,45 @@ function TripPlanningContent() {
 
         {/* Live Presence, Access Management & Share Action */}
         <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap w-full md:w-auto">
+          {/* Minimalist Beer Counter & Rank Pill */}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 shadow-xs">
+            <span className="text-sm select-none" role="img" aria-label="Bier">🍺</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => updateBeerCount(-1, tripId)}
+                disabled={(contextProfile.beerCount ?? 0) <= 0}
+                title="Bier abziehen (-1)"
+                className="w-5 h-5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-30 disabled:pointer-events-none text-amber-900 dark:text-amber-200 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+              >
+                -
+              </button>
+              <span className="font-mono font-extrabold text-xs px-1 text-slate-900 dark:text-white min-w-[20px] text-center">
+                {contextProfile.beerCount ?? 0}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  updateBeerCount(1, tripId);
+                  confetti({
+                    particleCount: 20,
+                    spread: 40,
+                    origin: { y: 0.15 },
+                    colors: ["#f59e0b", "#fbbf24", "#d97706"],
+                  });
+                }}
+                title="Bier trinken (+1) 🍺"
+                className="w-5 h-5 rounded-md bg-amber-500 hover:bg-amber-400 text-white flex items-center justify-center font-bold text-xs transition-transform active:scale-95 shadow-xs cursor-pointer"
+              >
+                +
+              </button>
+            </div>
+            <span className="text-slate-300 dark:text-neutral-700">|</span>
+            <span className="text-[10.5px] font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">
+              {userRank === 1 ? "🥇 1." : userRank === 2 ? "🥈 2." : userRank === 3 ? "🥉 3." : `#${userRank}`} Platz
+            </span>
+          </div>
+
           <ActiveUsersPresence
             tripId={tripId}
             currentUser={user}
@@ -527,94 +569,21 @@ function TripPlanningContent() {
         )}
       </div>
 
-      {/* Main Navigation Tabs */}
-      <div className="flex items-center gap-1 p-1 sm:p-1.5 rounded-2xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 w-full sm:w-fit overflow-x-auto no-scrollbar backdrop-blur-md transition-colors min-w-0">
-        <button
-          onClick={() => setActiveTab("timeline")}
-          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
-            activeTab === "timeline"
-              ? "bg-white dark:bg-neutral-800 text-indigo-600 dark:text-white shadow-sm"
-              : "text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <Calendar className="w-4 h-4 text-indigo-500" />
-          <span>Timeline <span className="hidden sm:inline">& Stempelpass</span></span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("matches")}
-          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
-            activeTab === "matches"
-              ? "bg-white dark:bg-neutral-800 text-emerald-600 dark:text-emerald-400 shadow-sm"
-              : "text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <Trophy className="w-4 h-4 text-emerald-500" />
-          <span>Voting <span className="hidden sm:inline">& Favoriten</span></span>
-          {options.length > 0 && (
-            <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-neutral-950 text-[10px] flex items-center justify-center font-mono">
-              {options.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab("passport")}
-          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
-            activeTab === "passport"
-              ? "bg-white dark:bg-neutral-800 text-amber-600 dark:text-amber-400 shadow-sm"
-              : "text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <span className="text-sm">🍺</span>
-          <span>Bier-Rangliste <span className="hidden sm:inline">& Badges</span></span>
-          <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/20">
-            {contextProfile.beerCount ?? 0} Biere
-          </span>
-        </button>
-      </div>
-
-      {/* View Content Panels */}
-      <div className="flex-1 w-full pt-2">
-        {activeTab === "timeline" && (
-          <TimelineContainer
-            trip={activeTrip}
-            items={timelineItems}
-            currentUserId={currentUserId}
-            currentUserName={user?.displayName || "Traveler"}
-            currentUserPhoto={user?.photoURL}
-            participants={gamificationProfiles.map((p) => ({
-              userId: p.userId,
-              displayName: p.displayName,
-              photoURL: p.photoURL,
-              role: p.levelTitle,
-            }))}
-          />
-        )}
-
-        {activeTab === "matches" && (
-          <FinalDashboard
-            trip={activeTrip}
-            options={options}
-            userVotes={userVotes}
-            currentUserId={currentUserId}
-            currentUserName={user?.displayName || "Traveler"}
-            onGoToTimeline={() => setActiveTab("timeline")}
-          />
-        )}
-
-        {activeTab === "passport" && (
-          <DigitalPassportView
-            trip={activeTrip}
-            profiles={gamificationProfiles}
-            candidates={contestCandidates}
-            currentUserId={currentUserId}
-            currentUserName={user?.displayName || "Traveler"}
-            currentUserPhoto={user?.photoURL}
-            isOwner={isOwner}
-            onGoToTimeline={() => setActiveTab("timeline")}
-          />
-        )}
+      {/* View Content Panel */}
+      <div className="flex-1 w-full pt-1">
+        <TimelineContainer
+          trip={activeTrip}
+          items={timelineItems}
+          currentUserId={currentUserId}
+          currentUserName={user?.displayName || "Traveler"}
+          currentUserPhoto={user?.photoURL}
+          participants={gamificationProfiles.map((p) => ({
+            userId: p.userId,
+            displayName: p.displayName,
+            photoURL: p.photoURL,
+            role: p.levelTitle,
+          }))}
+        />
       </div>
 
       {/* Share / Invite Modal */}

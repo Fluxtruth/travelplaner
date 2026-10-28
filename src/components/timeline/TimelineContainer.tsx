@@ -41,7 +41,6 @@ import {
   Plus,
   Pencil,
   X,
-  Trophy,
   ChevronsDownUp,
   ChevronsUpDown,
 } from "lucide-react";
@@ -888,14 +887,6 @@ export function TimelineContainer({
         </div>
 
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <ToolbarButton
-            id="plan-open-leaderboard"
-            label="Crew-Rangliste & Bier-Counter"
-            onClick={() => window.dispatchEvent(new CustomEvent("boystrip:navigate-tab", { detail: "passport" }))}
-          >
-            <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
-          </ToolbarButton>
-
           <ToolbarButton
             id="plan-toggle-collapse"
             label={allCollapsed ? "Alle Tage aufklappen" : "Alle Tage zuklappen"}

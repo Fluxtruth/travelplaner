@@ -49,7 +49,7 @@ export default function RootLayout({
           <AuthProvider>
             <GamificationProvider>
               <Navbar />
-              <main className="flex-1 flex flex-col w-full min-w-0 max-w-full overflow-x-clip">{children}</main>
+              <main className="flex-1 flex flex-col w-full min-w-0 max-w-full">{children}</main>
               <Footer />
             </GamificationProvider>
           </AuthProvider>
