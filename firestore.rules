@@ -152,8 +152,8 @@ service cloud.firestore {
         request.resource.data.name.size() <= 120;
 
       allow update: if isAuthenticated() && (
-        // Only the owner can update project settings, route, stops, dates, and title
-        (resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == resource.data.ownerId) ||
+        // Trip owner or participants can update trip details, route, stops, dates, and title
+        ((resource.data.ownerId == request.auth.uid || isTripParticipant(resource.data)) && request.resource.data.ownerId == resource.data.ownerId) ||
         // Collaborator can join trip by adding their own UID to participantIds
         (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds', 'updatedAt']) &&

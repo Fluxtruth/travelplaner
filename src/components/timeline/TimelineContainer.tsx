@@ -15,7 +15,7 @@ import {
   DragEndEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
-import { TimelineItem, DayColumnData, Trip, ActivityType, TimelineComment, TimelineCommentReplyTo } from "@/types";
+import { TimelineItem, DayColumnData, Trip, TripStop, ActivityType, TimelineComment, TimelineCommentReplyTo } from "@/types";
 import { TimelineDayColumn } from "./TimelineDayColumn";
 import { TimelineCard, isDraftItem } from "./TimelineCard";
 import { AddActivityModal } from "./AddActivityModal";
@@ -34,6 +34,7 @@ import {
   addTimelineItem,
   addTimelineItemComment,
   deleteTimelineItemComment,
+  updateTripDetails,
 } from "@/lib/firebase/firestore";
 import { useGamification } from "@/context/GamificationContext";
 import {
@@ -43,6 +44,7 @@ import {
   X,
   ChevronsDownUp,
   ChevronsUpDown,
+  MapPin,
 } from "lucide-react";
 
 // Small round icon button used in the slim toolbar
@@ -92,6 +94,7 @@ interface TimelineContainerProps {
   currentUserName?: string;
   currentUserPhoto?: string | null;
   participants?: ParticipantInfo[];
+  onTripUpdated?: (updatedTrip: Trip) => void;
 }
 
 export function TimelineContainer({
@@ -101,6 +104,7 @@ export function TimelineContainer({
   currentUserName = "Traveler",
   currentUserPhoto,
   participants = [],
+  onTripUpdated,
 }: TimelineContainerProps) {
   const { profile: userProfile } = useGamification();
 
@@ -185,121 +189,64 @@ export function TimelineContainer({
       { id: "pool", dayNumber: 0, dateStr: "Ideen-Vorrat", city: "Bausteine-Pool", isPool: true },
     ];
 
-    const stopsList = Array.isArray(trip?.stops)
-      ? trip.stops.map((s) => (typeof s === "string" ? s : s.city))
+    const normalizedStops: TripStop[] = Array.isArray(trip?.stops)
+      ? trip.stops.map((s, idx) =>
+          typeof s === "string"
+            ? { id: `stop-${idx}`, city: s, order: idx }
+            : { ...s, order: s.order ?? idx }
+        )
       : [];
 
+    let baseDate: Date;
+    if (trip?.startDate) {
+      const parsed = new Date(trip.startDate);
+      baseDate = !isNaN(parsed.getTime()) ? parsed : new Date();
+    } else if (trip?.createdAt) {
+      const parsed = new Date(trip.createdAt as string);
+      baseDate = !isNaN(parsed.getTime()) ? parsed : new Date();
+    } else {
+      baseDate = new Date();
+    }
+
+    let diffDays = 1;
     if (trip?.startDate && trip?.endDate) {
       const start = new Date(trip.startDate);
       const end = new Date(trip.endDate);
       if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
-        const diffDays = Math.min(Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1, 31);
-        for (let i = 0; i < diffDays; i++) {
-          const d = new Date(start);
-          d.setDate(d.getDate() + i);
-          const dateStr = d.toLocaleDateString("de-DE", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-          });
-          const formattedDate = formatDayShortDate(d);
-          let cityStr = "";
-          if (stopsList.length > 0) {
-            const stopIdx = Math.min(Math.floor((i / diffDays) * stopsList.length), stopsList.length - 1);
-            cityStr = stopsList[stopIdx] || "";
-          }
-          dayDefinitions.push({
-            id: `day-${i + 1}`,
-            dayNumber: i + 1,
-            dateStr,
-            city: cityStr || `Tag ${i + 1}`,
-            formattedDate,
-            isPool: false,
-          });
-        }
+        diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       }
-    } else if (trip?.startDate) {
-      const start = new Date(trip.startDate);
-      if (!isNaN(start.getTime())) {
-        const diffDays = Math.max(1, stopsList.length);
-        for (let i = 0; i < diffDays; i++) {
-          const d = new Date(start);
-          d.setDate(d.getDate() + i);
-          const dateStr = d.toLocaleDateString("de-DE", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-          });
-          const formattedDate = formatDayShortDate(d);
-          const cityStr = stopsList[i] || `Tag ${i + 1}`;
-          dayDefinitions.push({
-            id: `day-${i + 1}`,
-            dayNumber: i + 1,
-            dateStr,
-            city: cityStr,
-            formattedDate,
-            isPool: false,
-          });
-        }
-      }
-    } else if (stopsList.length > 0) {
-      let baseDate: Date | null = null;
-      for (const stop of trip?.stops || []) {
-        if (typeof stop !== "string" && stop?.startDate) {
-          const testD = new Date(stop.startDate);
-          if (!isNaN(testD.getTime())) {
-            baseDate = testD;
-            break;
-          }
-        }
-      }
-      if (!baseDate && trip?.createdAt) {
-        const testD = new Date(trip.createdAt as string);
-        if (!isNaN(testD.getTime())) {
-          baseDate = testD;
-        }
-      }
-      if (!baseDate) {
-        baseDate = new Date();
-      }
+    }
 
-      stopsList.forEach((city, idx) => {
-        const rawStop = trip?.stops?.[idx];
-        let d: Date;
-        if (rawStop && typeof rawStop !== "string" && rawStop.startDate) {
-          const parsed = new Date(rawStop.startDate);
-          d = !isNaN(parsed.getTime()) ? parsed : new Date(baseDate!.getTime() + idx * 86400000);
-        } else {
-          d = new Date(baseDate!.getTime() + idx * 86400000);
-        }
-        const formattedDate = formatDayShortDate(d);
-        const dateStr = d.toLocaleDateString("de-DE", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-        });
-        dayDefinitions.push({
-          id: `day-${idx + 1}`,
-          dayNumber: idx + 1,
-          dateStr,
-          city,
-          formattedDate,
-          isPool: false,
-        });
-      });
-    } else {
-      const d = trip?.createdAt ? new Date(trip.createdAt as string) : new Date();
-      const formattedDate = formatDayShortDate(d);
+    // Number of days/buckets must at least match the number of stops defined in the route!
+    // Every stop in the route MUST have its own bucket!
+    const totalDays = Math.min(Math.max(diffDays, normalizedStops.length, 1), 60);
+
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + i);
       const dateStr = d.toLocaleDateString("de-DE", {
         weekday: "short",
         day: "numeric",
         month: "short",
       });
+      const formattedDate = formatDayShortDate(d);
+
+      let cityStr = "";
+      if (normalizedStops.length > 0) {
+        if (i < normalizedStops.length) {
+          // Exactly 1 stop per day: 1-to-1 match guaranteed for every stop!
+          cityStr = normalizedStops[i]?.city || "";
+        } else {
+          // Extra days beyond stops: repeat last stop or generic tag
+          cityStr = normalizedStops[normalizedStops.length - 1]?.city || `Tag ${i + 1}`;
+        }
+      }
+
       dayDefinitions.push({
-        id: "day-1",
-        dayNumber: 1,
+        id: `day-${i + 1}`,
+        dayNumber: i + 1,
         dateStr,
-        city: "Start",
+        city: cityStr || `Tag ${i + 1}`,
         formattedDate,
         isPool: false,
       });
@@ -315,7 +262,119 @@ export function TimelineContainer({
         items: dayItems,
       };
     });
-  }, [trip?.startDate, trip?.endDate, trip?.stops, localItems]);
+  }, [trip?.startDate, trip?.endDate, trip?.stops, trip?.createdAt, localItems]);
+
+  // ------------------------------------------------------------------
+  // Add new travel day ("Neuen Reisetag anlegen") state & handler
+  // ------------------------------------------------------------------
+  const [isAddingDay, setIsAddingDay] = useState(false);
+  const [newDayCity, setNewDayCity] = useState("");
+  const [isSubmittingDay, setIsSubmittingDay] = useState(false);
+  const newDayInputRef = useRef<HTMLInputElement>(null);
+
+  const nonPoolColumns = useMemo(() => columns.filter((c) => !c.isPool), [columns]);
+  const nextDayNumber = nonPoolColumns.length + 1;
+
+  const projectedDate = useMemo(() => {
+    let effectiveStartDate = trip?.startDate || "";
+    if (!effectiveStartDate && trip?.createdAt) {
+      effectiveStartDate = trip.createdAt as string;
+    }
+    if (!effectiveStartDate) return null;
+    const start = new Date(effectiveStartDate);
+    if (isNaN(start.getTime())) return null;
+    const d = new Date(start);
+    d.setDate(d.getDate() + (nextDayNumber - 1));
+    return d;
+  }, [trip?.startDate, trip?.createdAt, nextDayNumber]);
+
+  const projectedDateStr = useMemo(() => {
+    if (!projectedDate) return "";
+    const day = String(projectedDate.getDate()).padStart(2, "0");
+    const month = String(projectedDate.getMonth() + 1).padStart(2, "0");
+    const year = String(projectedDate.getFullYear()).slice(-2);
+    return `${day}.${month}.${year}`;
+  }, [projectedDate]);
+
+  useEffect(() => {
+    if (isAddingDay) {
+      newDayInputRef.current?.focus();
+    }
+  }, [isAddingDay]);
+
+  const handleAddDay = async () => {
+    if (isSubmittingDay) return;
+    setIsSubmittingDay(true);
+
+    const cityTrimmed = newDayCity.trim();
+    const finalCity = cityTrimmed || `Tag ${nextDayNumber}`;
+
+    const currentStops: TripStop[] = Array.isArray(trip?.stops)
+      ? trip.stops.map((s, idx) =>
+          typeof s === "string"
+            ? { id: `stop-${idx}`, city: s, order: idx }
+            : { ...s, order: s.order ?? idx }
+        )
+      : [];
+
+    let targetIsoDate: string | undefined = undefined;
+    if (projectedDate) {
+      targetIsoDate = projectedDate.toISOString().split("T")[0];
+    }
+
+    const newStop: TripStop = {
+      id: `stop-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      city: finalCity,
+      order: currentStops.length,
+      ...(targetIsoDate ? { startDate: targetIsoDate, endDate: targetIsoDate } : {}),
+    };
+
+    const updatedStops = [...currentStops, newStop];
+
+    let updatedEndDate = trip?.endDate || "";
+    if (targetIsoDate) {
+      if (!updatedEndDate || targetIsoDate > updatedEndDate) {
+        updatedEndDate = targetIsoDate;
+      }
+    }
+
+    // Optimistic update to parent
+    if (onTripUpdated) {
+      onTripUpdated({
+        ...trip,
+        stops: updatedStops,
+        ...(updatedEndDate ? { endDate: updatedEndDate } : {}),
+      });
+    }
+
+    try {
+      await updateTripDetails(trip.id, {
+        stops: updatedStops,
+        ...(updatedEndDate ? { endDate: updatedEndDate } : {}),
+      });
+
+      setToastNotice({
+        message: `Tag ${nextDayNumber} (${finalCity}) wurde hinzugefügt!`,
+      });
+
+      setNewDayCity("");
+      setIsAddingDay(false);
+
+      // Select and scroll to new day
+      const newDayId = `day-${nextDayNumber}`;
+      setActiveDayId(newDayId);
+      requestAnimationFrame(() => {
+        document.getElementById(`plan-day-${newDayId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } catch (err) {
+      console.error("Failed to add trip day:", err);
+      setToastNotice({
+        message: "Fehler beim Anlegen des Reisetags. Bitte erneut versuchen.",
+      });
+    } finally {
+      setIsSubmittingDay(false);
+    }
+  };
 
   const availableDays = useMemo(() => {
     return columns.map((col) => ({
@@ -913,10 +972,27 @@ export function TimelineContainer({
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pl-1 border-l border-slate-200 dark:border-neutral-800">
               <button
                 type="button"
+                id="plan-quick-add-day-btn"
+                onClick={() => {
+                  setIsAddingDay(true);
+                  requestAnimationFrame(() => {
+                    newDayInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    newDayInputRef.current?.focus();
+                  });
+                }}
+                aria-label={`Tag ${nextDayNumber} hinzufügen`}
+                className="h-8 sm:h-9 px-2 sm:px-2.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 shrink-0 cursor-pointer"
+                title={`Tag ${nextDayNumber} hinzufügen`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Tag +</span>
+              </button>
+              <button
+                type="button"
                 id="plan-add-item"
                 onClick={() => handleOpenAddModal(activeColumn.id, activeColumn.city)}
                 aria-label={`Baustein zu ${activeColumn.isPool ? "Ideen-Pool" : `Tag ${activeColumn.dayNumber}`} hinzufügen`}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/30 active:scale-90 transition-transform shrink-0"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/30 active:scale-90 transition-transform shrink-0 cursor-pointer"
                 title="Neuer Baustein"
               >
                 <Plus className="w-4 h-4" strokeWidth={2.5} />
@@ -929,7 +1005,7 @@ export function TimelineContainer({
         </DayRail>
 
         {/* ================= AGENDA DAYS ================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 items-start pb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 items-start pb-2">
           {columns.map((col) => (
             <TimelineDayColumn
               key={col.id}
@@ -960,6 +1036,99 @@ export function TimelineContainer({
               onDeleteComment={handleDeleteComment}
             />
           ))}
+        </div>
+
+        {/* ================= SUBTLE '+' BUTTON DIRECTLY UNDER THE BUCKETS ================= */}
+        <div className="flex flex-col items-center justify-center pt-2 pb-6 w-full">
+          {!isAddingDay ? (
+            <button
+              type="button"
+              id="plan-add-bucket-btn"
+              onClick={() => setIsAddingDay(true)}
+              className="group flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-dashed border-slate-300 dark:border-neutral-700 hover:border-indigo-500 dark:hover:border-indigo-400 bg-white/70 dark:bg-neutral-900/50 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-semibold shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer select-none"
+              title={`Tag ${nextDayNumber} hinzufügen`}
+            >
+              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-neutral-800 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition-all">
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+              </span>
+              <span>Neuen Reisetag / Bucket hinzufügen</span>
+              {projectedDateStr && (
+                <span className="text-[10px] font-mono opacity-60">({projectedDateStr})</span>
+              )}
+            </button>
+          ) : (
+            <div className="w-full max-w-md rounded-2xl border border-indigo-400/60 dark:border-indigo-500/50 bg-white dark:bg-neutral-900 shadow-xl shadow-indigo-500/10 p-3 sm:p-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex flex-col items-center justify-center text-[10px] font-black font-mono shadow-xs">
+                    {nextDayNumber}
+                  </span>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Tag {nextDayNumber} anlegen
+                    </span>
+                    {projectedDateStr && (
+                      <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 ml-1.5 font-bold">
+                        {projectedDateStr}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingDay(false);
+                    setNewDayCity("");
+                  }}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-neutral-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                  title="Abbrechen"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAddDay();
+                }}
+                className="flex flex-col gap-2.5"
+              >
+                <div className="relative">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    ref={newDayInputRef}
+                    value={newDayCity}
+                    onChange={(e) => setNewDayCity(e.target.value)}
+                    placeholder="Ort oder Station (z. B. Berlin, Prag...)"
+                    className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-950 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingDay(false);
+                      setNewDayCity("");
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingDay}
+                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm shadow-indigo-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isSubmittingDay ? "Wird angelegt..." : `Bucket für Tag ${nextDayNumber} anlegen`}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
 
         {/* Drag Overlay for smooth representation while dragging */}

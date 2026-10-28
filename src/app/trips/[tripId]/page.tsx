@@ -563,6 +563,7 @@ function TripPlanningContent() {
             photoURL: p.photoURL,
             role: p.levelTitle,
           }))}
+          onTripUpdated={(updatedTrip) => setTrip(updatedTrip)}
         />
       </div>
 

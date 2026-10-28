@@ -89,17 +89,45 @@ export function EditRouteModal({
     );
   }
 
+  const handleStopsChange = (newStops: TripStop[]) => {
+    setStops(newStops);
+    if (startDate.trim() && newStops.length > 0) {
+      const start = new Date(startDate.trim());
+      if (!isNaN(start.getTime())) {
+        const minEnd = new Date(start);
+        minEnd.setDate(minEnd.getDate() + (newStops.length - 1));
+        const minEndStr = minEnd.toISOString().split("T")[0];
+        if (!endDate.trim() || endDate.trim() < minEndStr) {
+          setEndDate(minEndStr);
+        }
+      }
+    }
+  };
+
   const handleSave = async () => {
     if (!tripId || stops.length === 0) return;
     setIsSaving(true);
     try {
+      let finalEndDate = endDate.trim();
+      if (startDate.trim() && stops.length > 0) {
+        const start = new Date(startDate.trim());
+        if (!isNaN(start.getTime())) {
+          const minEnd = new Date(start);
+          minEnd.setDate(minEnd.getDate() + (stops.length - 1));
+          const minEndStr = minEnd.toISOString().split("T")[0];
+          if (!finalEndDate || finalEndDate < minEndStr) {
+            finalEndDate = minEndStr;
+          }
+        }
+      }
+
       await updateTripDetails(tripId, {
         stops,
         startDate: startDate.trim(),
-        endDate: endDate.trim(),
+        endDate: finalEndDate,
       });
       if (onStopsUpdated) {
-        onStopsUpdated(stops, startDate.trim(), endDate.trim());
+        onStopsUpdated(stops, startDate.trim(), finalEndDate);
       }
       setSaveSuccess(true);
       setTimeout(() => {
@@ -186,7 +214,7 @@ export function EditRouteModal({
         {/* Zwischenstopps / Reiseroute */}
         <RouteEditor
           stops={stops}
-          onChange={setStops}
+          onChange={handleStopsChange}
           isSaving={isSaving}
           onSave={handleSave}
           canEdit={isOwner}
