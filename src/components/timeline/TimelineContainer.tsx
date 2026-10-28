@@ -41,7 +41,6 @@ import {
   Plus,
   Pencil,
   X,
-  Check,
   Trophy,
   ChevronsDownUp,
   ChevronsUpDown,
@@ -124,8 +123,8 @@ export function TimelineContainer({
     defaultTitle: string;
   } | null>(null);
 
-  // Compact UI states: view vs. planning (edit) mode, collapsed days, expanded card
-  const [isEditMode, setIsEditMode] = useState(false);
+  // Compact UI states: collapsed days, expanded card
+  const isEditMode = true;
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [activeDayId, setActiveDayId] = useState<string>("pool");
@@ -898,24 +897,6 @@ export function TimelineContainer({
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pl-1 border-l border-slate-200 dark:border-neutral-800">
               <button
                 type="button"
-                id="plan-toggle-edit"
-                onClick={() => {
-                  setIsEditMode((v) => !v);
-                  setExpandedItemId(null);
-                }}
-                aria-pressed={isEditMode}
-                className={`h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl sm:rounded-full flex items-center gap-1 sm:gap-1.5 text-[11px] font-bold transition-all active:scale-95 shrink-0 ${
-                  isEditMode
-                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
-                    : "bg-white dark:bg-neutral-900 text-slate-700 dark:text-neutral-200 ring-1 ring-slate-200 dark:ring-neutral-800"
-                }`}
-                title={isEditMode ? "Planungsmodus beenden" : "Planungsmodus (Bausteine verschieben & Vorlagen)"}
-              >
-                {isEditMode ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : <Pencil className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{isEditMode ? "Fertig" : "Planen"}</span>
-              </button>
-              <button
-                type="button"
                 id="plan-add-item"
                 onClick={() => handleOpenAddModal(activeColumn.id, activeColumn.city)}
                 aria-label={`Baustein zu ${activeColumn.isPool ? "Ideen-Pool" : `Tag ${activeColumn.dayNumber}`} hinzufügen`}
@@ -927,8 +908,8 @@ export function TimelineContainer({
             </div>
           }
         >
-          {/* ================= STICKY TEMPLATE ICON STRIP (edit mode) ================= */}
-          {isEditMode && <QuickCategoryBar onQuickAdd={handleQuickAddTemplate} />}
+          {/* ================= STICKY TEMPLATE ICON STRIP (ALWAYS VISIBLE) ================= */}
+          <QuickCategoryBar onQuickAdd={handleQuickAddTemplate} />
         </DayRail>
 
         {/* ================= AGENDA DAYS ================= */}
