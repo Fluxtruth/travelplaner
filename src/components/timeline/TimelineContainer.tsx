@@ -882,7 +882,6 @@ export function TimelineContainer({
           <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate">
             {plannedCount} eingeplant · {poolCount} Pool
             {draftCount > 0 && <span className="text-amber-600 dark:text-amber-400"> · {draftCount} offen</span>}
-            {totalEstimatedCost > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold"> · {formattedCost} € geschätzt</span>}
           </p>
         </div>
 

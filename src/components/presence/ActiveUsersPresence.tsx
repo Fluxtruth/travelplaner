@@ -47,44 +47,35 @@ export function ActiveUsersPresence({
   }, [tripId]);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center">
       {/* Active Avatars Stack */}
-      <div className="flex -space-x-2 overflow-hidden items-center py-1">
+      <div className="flex -space-x-1.5 overflow-hidden items-center py-0.5">
         {onlineUsers.map((u) => {
           const isMe = currentUser?.uid === u.userId;
           return (
             <div
               key={u.userId}
-              title={`${u.displayName || "Traveler"}${isMe ? " (Du)" : ""} - in ${u.activeView}`}
+              title={`${u.displayName || "Traveler"}${isMe ? " (Du)" : ""} - online`}
               className="relative group transition-transform hover:scale-110 hover:z-20 cursor-pointer"
             >
               <img
                 src={u.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.userId}`}
                 alt={u.displayName}
-                className="w-8 h-8 rounded-full border-2 border-white dark:border-neutral-900 bg-slate-100 dark:bg-neutral-800 object-cover shadow-sm"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-white dark:border-neutral-900 bg-slate-100 dark:bg-neutral-800 object-cover shadow-xs"
               />
               {/* Online pulse indicator */}
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900 animate-pulse" />
+              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white dark:ring-neutral-900" />
 
               {/* Hover Tooltip */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-30">
-                <div className="px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800 text-[11px] text-white whitespace-nowrap shadow-xl">
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center pointer-events-none z-30">
+                <div className="px-2 py-0.5 rounded-md bg-neutral-950 border border-neutral-800 text-[10px] text-white whitespace-nowrap shadow-xl">
                   <span className="font-semibold">{u.displayName}</span>
                   {isMe && <span className="text-blue-400 font-normal"> (Du)</span>}
-                  <span className="text-neutral-400 block text-[10px]">
-                    👀 Sieht {u.activeView === "timeline" ? "Zeitstrahl" : u.activeView === "voting" ? "Voting" : "Matches"}
-                  </span>
                 </div>
               </div>
             </div>
           );
         })}
-      </div>
-
-      {/* Online Count Badge */}
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-        <span>{Math.max(onlineUsers.length, 1)} live</span>
       </div>
     </div>
   );

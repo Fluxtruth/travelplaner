@@ -72,15 +72,6 @@ function TripPlanningContent() {
   const [titleDraft, setTitleDraft] = useState("");
   const [isSavingTitle, setIsSavingTitle] = useState(false);
 
-  const totalTripCost = useMemo(() => {
-    return timelineItems.reduce((acc, it) => {
-      if (typeof it.cost === "number" && !isNaN(it.cost) && it.cost > 0) {
-        return acc + it.cost;
-      }
-      return acc;
-    }, 0);
-  }, [timelineItems]);
-
   const userRank = useMemo(() => {
     if (!gamificationProfiles || gamificationProfiles.length === 0) return 1;
     const sorted = [...gamificationProfiles].sort(
@@ -330,7 +321,7 @@ function TripPlanningContent() {
   // FULL COLLABORATIVE VIEW
   // ===============================================================
   return (
-    <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto px-2.5 sm:px-6 lg:px-8 py-3 sm:py-6 gap-3 sm:gap-6 min-w-0">
+    <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto px-2.5 sm:px-6 lg:px-8 py-2.5 sm:py-4 gap-2 sm:gap-3 min-w-0">
       {/* Public Trip Banner if user is only a spectator */}
       {isPublic && !isParticipant && (
         <div className="p-3 sm:p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
@@ -356,11 +347,11 @@ function TripPlanningContent() {
       )}
 
       {/* Top Trip Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 pb-3 sm:pb-6 border-b border-slate-200 dark:border-neutral-800 transition-colors">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4 pb-2.5 sm:pb-3 border-b border-slate-200 dark:border-neutral-800 transition-colors">
         <div>
           <button
             onClick={() => router.push("/")}
-            className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white mb-1.5 transition-colors py-0.5"
+            className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white mb-1 transition-colors py-0.5"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Zurück zu meinen Reisen</span>
@@ -405,9 +396,9 @@ function TripPlanningContent() {
               </div>
             </form>
           ) : (
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="flex items-center gap-2 group">
-                <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+              <div className="flex items-center gap-1.5 group">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                   {activeTrip.name}
                 </h1>
                 {isOwner && (
@@ -416,25 +407,25 @@ function TripPlanningContent() {
                       setTitleDraft(activeTrip.name);
                       setIsEditingTitle(true);
                     }}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors"
+                    className="p-1 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors"
                     title="Trip umbenennen"
                     aria-label="Trip umbenennen"
                   >
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              {/* Visibility Badge */}
+              {/* Compact Visibility Icon Badge */}
               <span
-                className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-bold border ${
+                title={isPublic ? "Öffentlich: Jeder mit Link kann beitreten" : "Privat: Geschützt, nur eingeladene Teilnehmer"}
+                className={`inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg border ${
                   isPublic
-                    ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
-                    : "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20"
+                    ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
+                    : "bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 border-slate-200 dark:border-neutral-700"
                 }`}
               >
                 {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                <span>{isPublic ? "Öffentlich" : "Privat (geschützt)"}</span>
               </span>
             </div>
           )}
@@ -447,37 +438,25 @@ function TripPlanningContent() {
             <span className="font-mono text-slate-700 dark:text-neutral-300 font-semibold">
               Code: {activeTrip.inviteCode}
             </span>
-            {totalTripCost > 0 && (
-              <>
-                <span className="text-slate-300 dark:text-neutral-600">•</span>
-                <span
-                  title="Geschätzter Gesamtpreis aller Aktivitäten dieser Reise"
-                  className="inline-flex items-center gap-1 font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-500/20 text-[11px]"
-                >
-                  <span>💰</span>
-                  <span>~{totalTripCost % 1 === 0 ? totalTripCost : totalTripCost.toFixed(2).replace(".", ",")} € geschätzt</span>
-                </span>
-              </>
-            )}
           </p>
         </div>
 
-        {/* Live Presence, Access Management & Share Action */}
-        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap w-full md:w-auto">
+        {/* Live Presence, Access Management & Share Action - All in one compact row */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full md:w-auto">
           {/* Minimalist Beer Counter & Rank Pill */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 shadow-xs">
-            <span className="text-sm select-none" role="img" aria-label="Bier">🍺</span>
-            <div className="flex items-center gap-1">
+          <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 shadow-xs h-8">
+            <span className="text-xs sm:text-sm select-none" role="img" aria-label="Bier">🍺</span>
+            <div className="flex items-center gap-0.5 sm:gap-1">
               <button
                 type="button"
                 onClick={() => updateBeerCount(-1, tripId)}
                 disabled={(contextProfile.beerCount ?? 0) <= 0}
                 title="Bier abziehen (-1)"
-                className="w-5 h-5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-30 disabled:pointer-events-none text-amber-900 dark:text-amber-200 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+                className="w-4 h-4 sm:w-5 sm:h-5 rounded bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-30 disabled:pointer-events-none text-amber-900 dark:text-amber-200 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
               >
                 -
               </button>
-              <span className="font-mono font-extrabold text-xs px-1 text-slate-900 dark:text-white min-w-[20px] text-center">
+              <span className="font-mono font-extrabold text-xs px-0.5 text-slate-900 dark:text-white min-w-[16px] text-center">
                 {contextProfile.beerCount ?? 0}
               </span>
               <button
@@ -492,14 +471,14 @@ function TripPlanningContent() {
                   });
                 }}
                 title="Bier trinken (+1) 🍺"
-                className="w-5 h-5 rounded-md bg-amber-500 hover:bg-amber-400 text-white flex items-center justify-center font-bold text-xs transition-transform active:scale-95 shadow-xs cursor-pointer"
+                className="w-4 h-4 sm:w-5 sm:h-5 rounded bg-amber-500 hover:bg-amber-400 text-white flex items-center justify-center font-bold text-xs transition-transform active:scale-95 shadow-xs cursor-pointer"
               >
                 +
               </button>
             </div>
             <span className="text-slate-300 dark:text-neutral-700">|</span>
-            <span className="text-[10.5px] font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">
-              {userRank === 1 ? "🥇 1." : userRank === 2 ? "🥈 2." : userRank === 3 ? "🥉 3." : `#${userRank}`} Platz
+            <span className="text-[10px] sm:text-[10.5px] font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">
+              {userRank === 1 ? "🥇 1." : userRank === 2 ? "🥈 2." : userRank === 3 ? "🥉 3." : `#${userRank}`}
             </span>
           </div>
 
@@ -512,40 +491,41 @@ function TripPlanningContent() {
           {/* Zugriffsverwaltung Button */}
           <button
             onClick={() => setIsAccessModalOpen(true)}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-200 text-xs font-semibold border border-slate-200 dark:border-neutral-700 transition-colors whitespace-nowrap"
+            className="h-8 px-2 sm:px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-200 text-xs font-semibold border border-slate-200 dark:border-neutral-700 transition-colors flex items-center gap-1.5 shrink-0"
+            title="Zugriffsverwaltung"
           >
             <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-            <span className="hidden xs:inline">Zugriffsverwaltung</span>
-            <span className="xs:hidden">Zugriff</span>
+            <span className="hidden sm:inline">Zugriff</span>
           </button>
 
           <button
             onClick={() => setIsShareModalOpen(true)}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-500/20 active:scale-95 transition-all whitespace-nowrap"
+            className="h-8 px-2.5 sm:px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 active:scale-95 transition-all shrink-0"
+            title="Freunde einladen"
           >
             <Share2 className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden xs:inline">Freunde einladen</span>
-            <span className="xs:hidden">Einladen</span>
+            <span className="hidden xs:inline">Einladen</span>
           </button>
         </div>
       </div>
 
-      {/* Active Route Bar with Quick Edit */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 sm:px-4 sm:py-2.5 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-sm transition-colors">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 min-w-0">
-          <span className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5 shrink-0">
+      {/* Active Route Bar with Quick Edit (Single Row) */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-xs transition-colors">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 min-w-0 flex-1">
+          <span className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1 shrink-0">
             <MapPin className="w-3.5 h-3.5 text-rose-500" />
-            <span>Route ({routeStops.length}):</span>
+            <span className="hidden xs:inline">Route</span>
+            <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono">({routeStops.length})</span>
           </span>
           {routeStops.length > 0 ? (
-            <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap shrink-0">
               {routeStops.map((stop, idx) => (
                 <React.Fragment key={stop.id || idx}>
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-neutral-800 text-slate-800 dark:text-neutral-200 text-xs font-bold whitespace-nowrap">
+                  <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-neutral-800 text-slate-800 dark:text-neutral-200 text-[11px] sm:text-xs font-semibold whitespace-nowrap">
                     {stop.city}
                   </span>
                   {idx < routeStops.length - 1 && (
-                    <ArrowRight className="w-3 h-3 text-slate-400 dark:text-neutral-600 shrink-0" />
+                    <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-400 dark:text-neutral-600 shrink-0" />
                   )}
                 </React.Fragment>
               ))}
@@ -560,11 +540,11 @@ function TripPlanningContent() {
         {isOwner && (
           <button
             onClick={() => setIsRouteModalOpen(true)}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 text-xs font-bold border border-slate-200 dark:border-neutral-700 transition-colors shrink-0 cursor-pointer w-full sm:w-auto"
-            title="Reiseroute und Zwischenstopps anpassen (Reiseleiter)"
+            className="flex items-center justify-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 text-xs font-semibold border border-slate-200 dark:border-neutral-700 transition-colors shrink-0 cursor-pointer"
+            title="Reiseroute und Zwischenstopps anpassen"
           >
             <Pencil className="w-3 h-3 text-slate-500" />
-            <span>Route anpassen</span>
+            <span className="hidden sm:inline">Route anpassen</span>
           </button>
         )}
       </div>
