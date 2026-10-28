@@ -10,6 +10,7 @@ import {
   onSnapshot,
   updateDoc,
   deleteDoc,
+  deleteField,
   serverTimestamp,
   arrayUnion,
   increment,
@@ -23,15 +24,43 @@ import {
   UserVote,
   TimelineItem,
   TimeProposal,
+  TimelineComment,
+  TimelineCommentReplyTo,
   PresenceUser,
   PlanViewType,
   VoteDecision,
   UserGamificationProfile,
   ExperienceContestItem,
   PassportStamp,
+  BadgeAchievement,
 } from "@/types";
 import { findMatchingStamp, calculateLevel, PASSPORT_STAMPS, BADGES_CATALOG } from "@/lib/gamification/catalog";
 import { generateInviteCode } from "@/lib/utils";
+
+// ===============================================================
+// Firestore Data Sanitizer
+// ===============================================================
+
+/**
+ * Recursively strips undefined values so Firestore never throws
+ * "Unsupported field value: undefined"
+ */
+export function cleanForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) return null as unknown as T;
+  if (Array.isArray(data)) {
+    return data.map((item) => cleanForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === "object" && data.constructor === Object) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, val] of Object.entries(data)) {
+      if (val !== undefined) {
+        cleaned[key] = cleanForFirestore(val);
+      }
+    }
+    return cleaned as T;
+  }
+  return data;
+}
 
 // ===============================================================
 // Trips API
@@ -62,22 +91,34 @@ export async function createTrip(
     { id: "stop-5", city: "Berlin", country: "Deutschland", order: 4, startDate: "2026-07-19", endDate: "2026-07-19" },
   ];
 
-  const stops = customStops !== undefined ? customStops : (seedDemoData ? defaultStops : []);
+  const rawStops = customStops !== undefined ? customStops : (seedDemoData ? defaultStops : []);
+  const stops = (rawStops || []).map((stop, idx) => {
+    if (typeof stop === "string") return stop;
+    const clean: Record<string, any> = {
+      id: stop.id || `stop-${idx}`,
+      city: stop.city || "",
+      order: typeof stop.order === "number" ? stop.order : idx,
+    };
+    if (stop.country) clean.country = stop.country;
+    if (stop.startDate) clean.startDate = stop.startDate;
+    if (stop.endDate) clean.endDate = stop.endDate;
+    return clean;
+  });
 
-  const tripData: Omit<Trip, "id"> = {
-    name,
-    description: description || "",
+  const tripData = cleanForFirestore({
+    name: name.trim(),
+    description: (description || "").trim(),
     ownerId,
     participantIds: [ownerId],
-    invitedEmails,
-    visibility, // "private" (default, invitation required) or "public"
+    invitedEmails: invitedEmails || [],
+    visibility: visibility || "private",
     inviteCode,
     startDate: startDate || "",
     endDate: endDate || "",
     stops,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  };
+  });
 
   await setDoc(tripRef, { ...tripData, id: tripRef.id });
 
@@ -156,9 +197,22 @@ export async function updateTripDetails(
   if (updates.description !== undefined) cleanUpdates.description = updates.description.trim();
   if (updates.startDate !== undefined) cleanUpdates.startDate = updates.startDate;
   if (updates.endDate !== undefined) cleanUpdates.endDate = updates.endDate;
-  if (updates.stops !== undefined) cleanUpdates.stops = updates.stops;
+  if (updates.stops !== undefined) {
+    cleanUpdates.stops = updates.stops.map((stop, idx) => {
+      if (typeof stop === "string") return stop;
+      const clean: Record<string, any> = {
+        id: stop.id || `stop-${idx}`,
+        city: stop.city || "",
+        order: typeof stop.order === "number" ? stop.order : idx,
+      };
+      if (stop.country) clean.country = stop.country;
+      if (stop.startDate) clean.startDate = stop.startDate;
+      if (stop.endDate) clean.endDate = stop.endDate;
+      return clean;
+    });
+  }
 
-  await updateDoc(tripRef, cleanUpdates);
+  await updateDoc(tripRef, cleanForFirestore(cleanUpdates));
 }
 
 /**
@@ -204,6 +258,30 @@ export async function removeParticipantFromTrip(tripId: string, participantId: s
     participantIds: updatedParticipants,
     updatedAt: new Date().toISOString(),
   });
+}
+
+/**
+ * Permanently delete a trip and its subcollections (Owner only)
+ */
+export async function deleteTrip(tripId: string): Promise<void> {
+  // Best-effort cleanup of subcollections
+  try {
+    const subcollections = ["timeline_items", "options", "votes", "presence", "gamification"];
+    for (const subcol of subcollections) {
+      const snap = await getDocs(collection(db, "trips", tripId, subcol));
+      if (!snap.empty) {
+        const batch = writeBatch(db);
+        snap.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    }
+  } catch (err) {
+    console.warn("Could not clean up all subcollections for trip:", tripId, err);
+  }
+
+  // Delete main trip document
+  const tripRef = doc(db, "trips", tripId);
+  await deleteDoc(tripRef);
 }
 
 /**
@@ -463,13 +541,13 @@ export async function addTimelineItem(
   item: Omit<TimelineItem, "id" | "tripId" | "createdAt" | "updatedAt">
 ): Promise<string> {
   const itemRef = doc(collection(db, "trips", tripId, "timeline_items"));
-  const newItem: TimelineItem = {
+  const newItem = cleanForFirestore({
     ...item,
     id: itemRef.id,
     tripId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  };
+  });
 
   await setDoc(itemRef, newItem);
   return itemRef.id;
@@ -514,10 +592,19 @@ export async function updateTimelineItem(
   updates: Partial<Omit<TimelineItem, "id" | "tripId" | "createdAt">>
 ): Promise<void> {
   const itemRef = doc(db, "trips", tripId, "timeline_items", itemId);
-  await updateDoc(itemRef, {
-    ...updates,
+  const cleanUpdates: Record<string, any> = {
     updatedAt: new Date().toISOString(),
-  });
+  };
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === undefined || value === "") {
+      cleanUpdates[key] = deleteField();
+    } else {
+      cleanUpdates[key] = value;
+    }
+  }
+
+  await updateDoc(itemRef, cleanUpdates);
 }
 
 
@@ -621,6 +708,68 @@ export async function applyProposedTime(
   const itemRef = doc(db, "trips", tripId, "timeline_items", itemId);
   await updateDoc(itemRef, {
     time: newTime,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Add a comment / chat message to a timeline building block
+ */
+export async function addTimelineItemComment(
+  tripId: string,
+  itemId: string,
+  commentData: {
+    userId: string;
+    userName: string;
+    userPhoto?: string;
+    text: string;
+    mentions?: string[];
+    replyTo?: TimelineCommentReplyTo;
+  }
+): Promise<TimelineComment> {
+  const itemRef = doc(db, "trips", tripId, "timeline_items", itemId);
+  const snap = await getDoc(itemRef);
+  if (!snap.exists()) throw new Error("Timeline item not found");
+
+  const newComment: TimelineComment = cleanForFirestore({
+    id: "cmt-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+    userId: commentData.userId,
+    userName: commentData.userName || "Traveler",
+    userPhoto: commentData.userPhoto || undefined,
+    text: commentData.text.trim(),
+    mentions: commentData.mentions && commentData.mentions.length > 0 ? commentData.mentions : undefined,
+    replyTo: commentData.replyTo ? cleanForFirestore(commentData.replyTo) : undefined,
+    createdAt: new Date().toISOString(),
+  });
+
+  const existingComments = (snap.data().comments as TimelineComment[]) || [];
+  const updatedComments = [...existingComments, newComment];
+
+  await updateDoc(itemRef, {
+    comments: updatedComments,
+    updatedAt: new Date().toISOString(),
+  });
+
+  return newComment;
+}
+
+/**
+ * Delete a comment from a timeline building block
+ */
+export async function deleteTimelineItemComment(
+  tripId: string,
+  itemId: string,
+  commentId: string
+): Promise<void> {
+  const itemRef = doc(db, "trips", tripId, "timeline_items", itemId);
+  const snap = await getDoc(itemRef);
+  if (!snap.exists()) return;
+
+  const existingComments = (snap.data().comments as TimelineComment[]) || [];
+  const updatedComments = existingComments.filter((c) => c.id !== commentId);
+
+  await updateDoc(itemRef, {
+    comments: updatedComments,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -1071,3 +1220,18 @@ export async function voteForBestExperience(
 
   await updateDoc(contestDocRef, { candidates: updatedCandidates });
 }
+
+/**
+ * Update the custom badges catalog for a trip (Owner only)
+ */
+export async function updateTripBadges(
+  tripId: string,
+  badges: BadgeAchievement[]
+): Promise<void> {
+  const tripRef = doc(db, "trips", tripId);
+  await updateDoc(tripRef, {
+    customBadges: cleanForFirestore(badges),
+    updatedAt: new Date().toISOString(),
+  });
+}
+

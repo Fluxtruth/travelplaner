@@ -51,7 +51,12 @@ function DayRailChip({ col, isActive, onSelect }: DayRailChipProps) {
       >
         {col.isPool ? "🧩" : col.dayNumber}
       </span>
-      <span className="whitespace-nowrap">{shortCity}</span>
+      <span className="whitespace-nowrap flex items-baseline gap-1">
+        <span>{shortCity}</span>
+        {col.formattedDate && !col.isPool && (
+          <span className="text-[9px] font-mono font-bold opacity-75">{col.formattedDate}</span>
+        )}
+      </span>
       {col.items.length > 0 && (
         <span
           className={`min-w-3.5 h-3.5 sm:min-w-4 sm:h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${

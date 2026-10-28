@@ -14,7 +14,7 @@ import {
   calculateLevel,
   evaluateBadges,
 } from "@/lib/gamification/catalog";
-import { voteForBestExperience } from "@/lib/firebase/firestore";
+import { voteForBestExperience, updateTripBadges } from "@/lib/firebase/firestore";
 import { useGamification } from "@/context/GamificationContext";
 import confetti from "canvas-confetti";
 import {
@@ -36,7 +36,13 @@ import {
   Beer,
   Plus,
   Minus,
+  Pencil,
+  Trash2,
+  RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
+
+import { BadgeEditorModal } from "./BadgeEditorModal";
 
 interface DigitalPassportViewProps {
   trip: Trip;
@@ -45,6 +51,7 @@ interface DigitalPassportViewProps {
   currentUserId: string;
   currentUserName?: string;
   currentUserPhoto?: string | null;
+  isOwner?: boolean;
   onGoToTimeline: () => void;
 }
 
@@ -55,10 +62,95 @@ export function DigitalPassportView({
   currentUserId,
   currentUserName = "Traveler",
   currentUserPhoto,
+  isOwner,
   onGoToTimeline,
 }: DigitalPassportViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<"leaderboard" | "badges" | "contest">("leaderboard");
   const { profile: contextProfile, updateBeerCount, updateProfile, addXp } = useGamification();
+
+  // Role check: Is current user the trip owner?
+  const effectiveIsOwner =
+    isOwner ??
+    (Boolean(currentUserId) &&
+      (trip.ownerId === currentUserId ||
+        (currentUserId === "guest-owner" && trip.ownerId === "guest-owner") ||
+        trip.ownerId === "demo-owner"));
+
+  // Active Badges catalog (customized by Owner or default Boystrip badges)
+  const activeBadges: BadgeAchievement[] = React.useMemo(() => {
+    if (trip.customBadges && Array.isArray(trip.customBadges) && trip.customBadges.length > 0) {
+      return trip.customBadges;
+    }
+    return BADGES_CATALOG;
+  }, [trip.customBadges]);
+
+  // Badge Management Modal states
+  const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
+  const [badgeToEdit, setBadgeToEdit] = useState<BadgeAchievement | null>(null);
+  const [badgeNotification, setBadgeNotification] = useState<string | null>(null);
+
+  const handleOpenCreateBadge = () => {
+    setBadgeToEdit(null);
+    setIsBadgeModalOpen(true);
+  };
+
+  const handleOpenEditBadge = (badge: BadgeAchievement) => {
+    setBadgeToEdit(badge);
+    setIsBadgeModalOpen(true);
+  };
+
+  const handleSaveBadge = async (badge: BadgeAchievement) => {
+    let updatedList: BadgeAchievement[];
+    const existingIndex = activeBadges.findIndex((b) => b.id === badge.id);
+    if (existingIndex >= 0) {
+      updatedList = [...activeBadges];
+      updatedList[existingIndex] = badge;
+    } else {
+      updatedList = [badge, ...activeBadges];
+    }
+
+    try {
+      await updateTripBadges(trip.id, updatedList);
+      setBadgeNotification(`Badge "${badge.title}" erfolgreich gespeichert!`);
+      setTimeout(() => setBadgeNotification(null), 3500);
+    } catch (e: any) {
+      console.error("Failed to save badge to Firestore:", e);
+      alert("Fehler beim Speichern des Badges: " + (e?.message || "Unbekannter Fehler"));
+    }
+  };
+
+  const handleDeleteBadge = async (badgeId: string, badgeTitle: string) => {
+    if (!window.confirm(`Möchtest du den Badge "${badgeTitle}" wirklich dauerhaft für diesen Trip löschen?`)) {
+      return;
+    }
+    const updatedList = activeBadges.filter((b) => b.id !== badgeId);
+    try {
+      await updateTripBadges(trip.id, updatedList);
+      setBadgeNotification(`Badge "${badgeTitle}" entfernt.`);
+      setTimeout(() => setBadgeNotification(null), 3500);
+    } catch (e: any) {
+      console.error("Failed to delete badge from Firestore:", e);
+      alert("Fehler beim Löschen des Badges: " + (e?.message || "Unbekannter Fehler"));
+    }
+  };
+
+  const handleResetBadgesToDefault = async () => {
+    if (
+      !window.confirm(
+        "Möchtest du alle Badges wirklich auf den Boystrip-Standardkatalog zurücksetzen? Eigene Änderungen werden dabei überschrieben."
+      )
+    ) {
+      return;
+    }
+    try {
+      await updateTripBadges(trip.id, BADGES_CATALOG);
+      setBadgeNotification("Standard-Badges wurden erfolgreich wiederhergestellt!");
+      setTimeout(() => setBadgeNotification(null), 3500);
+    } catch (e: any) {
+      console.error("Failed to reset badges:", e);
+      alert("Fehler beim Zurücksetzen: " + (e?.message || "Unbekannter Fehler"));
+    }
+  };
 
   // Evaluate automatic badges based on stamps and beerCount
   const myBeerCount = contextProfile.beerCount ?? 0;
@@ -217,40 +309,45 @@ export function DigitalPassportView({
       {/* Streamlined View Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
-            <Award className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center text-xl border border-amber-500/30">
+            🍺
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                Digitaler Reisepass & Challenges
+                Bier-Counter & Crew-Rangliste
               </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                {levelInfo.title}
-              </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
-              Sammle Stempel bei Stopps in der Timeline, schalte Badges frei und stimme für Erlebnisse ab.
+              Erfasse deine Biere live auf der Tour und sieh, wer der Bierkönig der Crew wird!
             </p>
           </div>
         </div>
 
         {/* Quick summary status tags */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-neutral-300">
-          <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800">
-            🛂 {myProfile.stamps.length} / {PASSPORT_STAMPS.length} Stempel
+          <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 flex items-center gap-1.5">
+            <span>🍺</span>
+            <span>{myProfile.beerCount || 0} Biere</span>
           </span>
-          <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800">
-            🏆 {myProfile.badges.length} / {BADGES_CATALOG.length} Badges
+          <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 flex items-center gap-1.5">
+            <span>🏆</span>
+            <span>{myProfile.badges.length} / {activeBadges.length} Badges</span>
           </span>
+          {effectiveIsOwner && (
+            <span className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Trip-Owner</span>
+            </span>
+          )}
         </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 w-fit backdrop-blur-md">
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 w-fit backdrop-blur-md overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveSubTab("leaderboard")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
             activeSubTab === "leaderboard"
               ? "bg-white dark:bg-neutral-800 text-amber-600 dark:text-amber-400 shadow-xs"
               : "text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white"
@@ -269,7 +366,7 @@ export function DigitalPassportView({
           }`}
         >
           <Award className="w-4 h-4" />
-          <span>Badges & Reise-Erfolge ({myProfile.badges.length})</span>
+          <span>Badges & Reise-Erfolge ({myProfile.badges.length}/{activeBadges.length})</span>
         </button>
 
         <button
@@ -285,106 +382,200 @@ export function DigitalPassportView({
         </button>
       </div>
 
-      {/* Informative Banner: Stamps are unified in the interactive Timeline */}
-      <div className="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🛂</span>
-          <div>
-            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-              Stempelkarten direkt in deiner interaktiven Timeline!
-            </h4>
-            <p className="text-[11px] text-slate-600 dark:text-neutral-400">
-              Alle Reisestationen sind wackelige Visum-Kärtchen, die du vor Ort in der Timeline abstempeln kannst.
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onGoToTimeline}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm shadow-indigo-500/20 active:scale-95 transition-all w-fit cursor-pointer"
-        >
-          <span>Zur Timeline & Stempelpass</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
       {/* ========================================================= */}
       {/* 1. BADGES & ACHIEVEMENTS VIEW                             */}
       {/* ========================================================= */}
       {activeSubTab === "badges" && (
-        <div className="rounded-3xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/90 p-6 sm:p-8 shadow-sm transition-colors">
-          <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2 mb-1">
-            <span>🏆 Badges & Reise-Erfolge</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/20 font-bold">
-              {myProfile.badges.length} / {BADGES_CATALOG.length} Freigeschaltet
-            </span>
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-neutral-400 mb-6">
-            Sammle Trophäen für besondere Momente, Check-ins und Nutzung während des Trips.
-          </p>
+        <div className="rounded-3xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/90 p-6 sm:p-8 shadow-sm transition-colors space-y-6">
+          {/* Action Notification */}
+          {badgeNotification && (
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span>{badgeNotification}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setBadgeNotification(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
+          {/* Section Header with Owner Controls */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-neutral-800">
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>🏆 Badges & Reise-Erfolge</span>
+                </h3>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/20 font-bold">
+                  {myProfile.badges.length} / {activeBadges.length} Freigeschaltet
+                </span>
+                {effectiveIsOwner ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-amber-500" />
+                    <span>Owner-Verwaltung aktiv</span>
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-400 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>Vom Trip-Owner verwaltet</span>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1">
+                {effectiveIsOwner
+                  ? "Als Trip-Owner kannst du eigene Badges anlegen, bestehende Erfolge editieren oder löschen."
+                  : "Besondere Trophäen für die Reise. Klicke auf 'Freischalten', um deine Erfolge zu verbuchen."}
+              </p>
+            </div>
+
+            {/* Owner Management Buttons */}
+            {effectiveIsOwner ? (
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleResetBadgesToDefault}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-700 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Auf den ursprünglichen Standardkatalog zurücksetzen"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Standard-Badges</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateBadge}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Neuer Badge anlegen</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Badges Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {BADGES_CATALOG.map((badge) => {
+            {activeBadges.map((badge) => {
               const isUnlocked = myProfile.badges.includes(badge.id);
 
               return (
                 <div
                   key={badge.id}
-                  className={`p-4 rounded-2xl border transition-all flex items-start gap-3.5 ${
+                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 relative group ${
                     isUnlocked
                       ? "border-amber-300/80 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-700/50 shadow-xs"
-                      : "border-slate-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-900/30 opacity-60"
+                      : "border-slate-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-900/30 opacity-70 hover:opacity-100"
                   }`}
                 >
-                  <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 border ${
-                      isUnlocked
-                        ? "bg-amber-100 dark:bg-amber-500/20 border-amber-300 text-amber-900 shadow-sm"
-                        : "bg-slate-200 dark:bg-neutral-800 border-slate-300 dark:border-neutral-700 grayscale"
-                    }`}
-                  >
-                    {badge.icon}
+                  {/* Top: Icon + Title + Points + Owner Tools */}
+                  <div className="flex items-start gap-3.5">
+                    <div
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 border ${
+                        isUnlocked
+                          ? "bg-amber-100 dark:bg-amber-500/20 border-amber-300 text-amber-900 shadow-sm"
+                          : "bg-slate-200 dark:bg-neutral-800 border-slate-300 dark:border-neutral-700 grayscale"
+                      }`}
+                    >
+                      {badge.icon}
+                    </div>
+
+                    <div className="flex-1 min-w-0 pr-1">
+                      <div className="flex items-start justify-between gap-1 mb-0.5">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                          {badge.title}
+                        </h4>
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                          +{badge.points} XP
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-neutral-400 leading-snug line-clamp-2">
+                        {badge.description}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {badge.title}
-                      </h4>
-                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                        +{badge.points} XP
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-neutral-400 leading-snug">
-                      {badge.description}
-                    </p>
-                    <div className="mt-2.5 flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold">
-                        {isUnlocked ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-bold">
-                            ✓ Freigeschaltet
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 dark:text-neutral-500">Noch offen</span>
-                        )}
-                      </span>
+                  {/* Owner Controls (Pencil & Trash) visible only to Owner */}
+                  {effectiveIsOwner && (
+                    <div className="flex items-center justify-end gap-1 pt-1 border-t border-slate-100 dark:border-neutral-800/60">
                       <button
                         type="button"
-                        onClick={() => handleToggleBadge(badge.id, badge.title, badge.points)}
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                          isUnlocked
-                            ? "bg-slate-100 dark:bg-neutral-800 text-slate-500 hover:text-rose-500 border-slate-200 dark:border-neutral-700"
-                            : "bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-xs active:scale-95"
-                        }`}
-                        title={isUnlocked ? "Badge zurücknehmen" : "Badge für dich verbuchen"}
+                        onClick={() => handleOpenEditBadge(badge)}
+                        className="px-2 py-1 rounded-lg text-[10px] font-semibold text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-neutral-800 transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Badge bearbeiten (Titel, XP, Icon)"
                       >
-                        {isUnlocked ? "Zurücknehmen" : "Freischalten 🎉"}
+                        <Pencil className="w-3 h-3" />
+                        <span>Bearbeiten</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBadge(badge.id, badge.title)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                        title="Badge löschen"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
+                  )}
+
+                  {/* Bottom: Unlock Status & Toggle Button for all Travelers */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-neutral-800 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold">
+                      {isUnlocked ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-bold">
+                          ✓ Freigeschaltet
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 dark:text-neutral-500">Noch offen</span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBadge(badge.id, badge.title, badge.points)}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                        isUnlocked
+                          ? "bg-slate-100 dark:bg-neutral-800 text-slate-500 hover:text-rose-500 border-slate-200 dark:border-neutral-700"
+                          : "bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-xs active:scale-95"
+                      }`}
+                      title={isUnlocked ? "Badge zurücknehmen" : "Badge für dich verbuchen"}
+                    >
+                      {isUnlocked ? "Zurücknehmen" : "Freischalten 🎉"}
+                    </button>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {activeBadges.length === 0 && (
+            <div className="p-8 rounded-2xl border border-dashed border-slate-300 dark:border-neutral-700 text-center space-y-3">
+              <span className="text-3xl block">🏆</span>
+              <p className="text-sm font-bold text-slate-800 dark:text-neutral-200">
+                Noch keine Badges für diese Reise definiert
+              </p>
+              {effectiveIsOwner && (
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleResetBadgesToDefault}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-neutral-800 text-slate-700 dark:text-neutral-200 hover:bg-slate-200"
+                  >
+                    Standard-Badges laden
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenCreateBadge}
+                    className="px-4 py-2 rounded-xl text-xs font-black bg-amber-500 text-slate-950 hover:bg-amber-400"
+                  >
+                    + Neuen Badge anlegen
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -550,11 +741,9 @@ export function DigitalPassportView({
                       </div>
 
                       <p className="text-[11px] text-slate-500 dark:text-neutral-400 flex items-center gap-2 flex-wrap mt-0.5">
-                        <span>Level {userProf.level} ({userProf.levelTitle})</span>
+                        <span>{userProf.beerCount ?? 0} {userProf.beerCount === 1 ? "Bier gezischt" : "Biere gezischt"}</span>
                         <span>•</span>
-                        <span>{userProf.points} XP</span>
-                        <span>•</span>
-                        <span>{userProf.stamps?.length || 0} Stempel</span>
+                        <span>{userProf.stamps?.length || 0} Reise-Stationen</span>
                       </p>
                     </div>
                   </div>
@@ -703,6 +892,20 @@ export function DigitalPassportView({
           </div>
         </div>
       )}
+
+      {/* Owner Badge Editor Modal */}
+      {effectiveIsOwner && (
+        <BadgeEditorModal
+          isOpen={isBadgeModalOpen}
+          initialBadge={badgeToEdit}
+          onClose={() => {
+            setIsBadgeModalOpen(false);
+            setBadgeToEdit(null);
+          }}
+          onSave={handleSaveBadge}
+        />
+      )}
     </div>
   );
 }
+

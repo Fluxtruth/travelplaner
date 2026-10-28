@@ -15,7 +15,7 @@ import {
   DragEndEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
-import { TimelineItem, DayColumnData, Trip, ActivityType } from "@/types";
+import { TimelineItem, DayColumnData, Trip, ActivityType, TimelineComment, TimelineCommentReplyTo } from "@/types";
 import { TimelineDayColumn } from "./TimelineDayColumn";
 import { TimelineCard, isDraftItem } from "./TimelineCard";
 import { AddActivityModal } from "./AddActivityModal";
@@ -23,6 +23,7 @@ import { EditActivityModal } from "./EditActivityModal";
 import { QuickCategoryBar, CategoryTemplateDef } from "./QuickCategoryBar";
 import { Category3DIcon } from "./Category3DIcon";
 import { DayRail } from "./DayRail";
+import { ParticipantInfo } from "./TimelineItemComments";
 import {
   updateTimelineItemPosition,
   deleteTimelineItem,
@@ -31,8 +32,9 @@ import {
   voteTimelineItemTime,
   applyProposedTime,
   addTimelineItem,
+  addTimelineItemComment,
+  deleteTimelineItemComment,
 } from "@/lib/firebase/firestore";
-import { PASSPORT_STAMPS } from "@/lib/gamification/catalog";
 import { useGamification } from "@/context/GamificationContext";
 import {
   Sparkles,
@@ -90,8 +92,8 @@ interface TimelineContainerProps {
   items: TimelineItem[];
   currentUserId?: string;
   currentUserName?: string;
-  userCheckins?: Record<string, string>;
-  onCheckIn?: (itemId: string, itemTitle: string, itemType: string, city: string) => void;
+  currentUserPhoto?: string | null;
+  participants?: ParticipantInfo[];
 }
 
 export function TimelineContainer({
@@ -99,18 +101,20 @@ export function TimelineContainer({
   items,
   currentUserId = "guest-user",
   currentUserName = "Traveler",
-  userCheckins = {},
-  onCheckIn,
+  currentUserPhoto,
+  participants = [],
 }: TimelineContainerProps) {
   const { profile: userProfile } = useGamification();
 
   // Local optimistic state for instant zero-latency feedback during drag & votes
-  const [localItems, setLocalItems] = useState<TimelineItem[]>(items);
+  const [localItems, setLocalItems] = useState<TimelineItem[]>(() =>
+    [...items].sort((a, b) => a.order - b.order)
+  );
   const [prevPropsItems, setPrevPropsItems] = useState<TimelineItem[]>(items);
 
   if (prevPropsItems !== items) {
     setPrevPropsItems(items);
-    setLocalItems(items);
+    setLocalItems([...items].sort((a, b) => a.order - b.order));
   }
 
   const [activeItem, setActiveItem] = useState<TimelineItem | null>(null);
@@ -119,16 +123,6 @@ export function TimelineContainer({
     label: string;
     defaultTitle: string;
   } | null>(null);
-
-  // Stempelpass filters & view states
-  const [filterStampedOnly, setFilterStampedOnly] = useState(false);
-  const [showPassportOverview, setShowPassportOverview] = useState(false);
-
-  const totalStampedCount = useMemo(() => {
-    return Object.keys(userCheckins).length;
-  }, [userCheckins]);
-
-  const earnedStampsCount = (userProfile.stamps || []).length;
 
   // Compact UI states: view vs. planning (edit) mode, collapsed days, expanded card
   const [isEditMode, setIsEditMode] = useState(false);
@@ -175,7 +169,21 @@ export function TimelineContainer({
 
   // Calendar columns definition dynamically generated from trip dates and stops
   const columns: DayColumnData[] = useMemo(() => {
-    const dayDefinitions: Array<{ id: string; dayNumber: number; dateStr: string; city: string; isPool: boolean }> = [
+    const formatDayShortDate = (d: Date): string => {
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = String(d.getFullYear()).slice(-2);
+      return `${day}.${month}.${year}`;
+    };
+
+    const dayDefinitions: Array<{
+      id: string;
+      dayNumber: number;
+      dateStr: string;
+      city: string;
+      formattedDate?: string;
+      isPool: boolean;
+    }> = [
       { id: "pool", dayNumber: 0, dateStr: "Ideen-Vorrat", city: "Bausteine-Pool", isPool: true },
     ];
 
@@ -196,6 +204,7 @@ export function TimelineContainer({
             day: "numeric",
             month: "short",
           });
+          const formattedDate = formatDayShortDate(d);
           let cityStr = "";
           if (stopsList.length > 0) {
             const stopIdx = Math.min(Math.floor((i / diffDays) * stopsList.length), stopsList.length - 1);
@@ -206,52 +215,116 @@ export function TimelineContainer({
             dayNumber: i + 1,
             dateStr,
             city: cityStr || `Tag ${i + 1}`,
+            formattedDate,
+            isPool: false,
+          });
+        }
+      }
+    } else if (trip?.startDate) {
+      const start = new Date(trip.startDate);
+      if (!isNaN(start.getTime())) {
+        const diffDays = Math.max(1, stopsList.length);
+        for (let i = 0; i < diffDays; i++) {
+          const d = new Date(start);
+          d.setDate(d.getDate() + i);
+          const dateStr = d.toLocaleDateString("de-DE", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          });
+          const formattedDate = formatDayShortDate(d);
+          const cityStr = stopsList[i] || `Tag ${i + 1}`;
+          dayDefinitions.push({
+            id: `day-${i + 1}`,
+            dayNumber: i + 1,
+            dateStr,
+            city: cityStr,
+            formattedDate,
             isPool: false,
           });
         }
       }
     } else if (stopsList.length > 0) {
+      let baseDate: Date | null = null;
+      for (const stop of trip?.stops || []) {
+        if (typeof stop !== "string" && stop?.startDate) {
+          const testD = new Date(stop.startDate);
+          if (!isNaN(testD.getTime())) {
+            baseDate = testD;
+            break;
+          }
+        }
+      }
+      if (!baseDate && trip?.createdAt) {
+        const testD = new Date(trip.createdAt as string);
+        if (!isNaN(testD.getTime())) {
+          baseDate = testD;
+        }
+      }
+      if (!baseDate) {
+        baseDate = new Date();
+      }
+
       stopsList.forEach((city, idx) => {
+        const rawStop = trip?.stops?.[idx];
+        let d: Date;
+        if (rawStop && typeof rawStop !== "string" && rawStop.startDate) {
+          const parsed = new Date(rawStop.startDate);
+          d = !isNaN(parsed.getTime()) ? parsed : new Date(baseDate!.getTime() + idx * 86400000);
+        } else {
+          d = new Date(baseDate!.getTime() + idx * 86400000);
+        }
+        const formattedDate = formatDayShortDate(d);
+        const dateStr = d.toLocaleDateString("de-DE", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        });
         dayDefinitions.push({
           id: `day-${idx + 1}`,
           dayNumber: idx + 1,
-          dateStr: `Station ${idx + 1}`,
+          dateStr,
           city,
+          formattedDate,
           isPool: false,
         });
       });
     } else {
+      const d = trip?.createdAt ? new Date(trip.createdAt as string) : new Date();
+      const formattedDate = formatDayShortDate(d);
+      const dateStr = d.toLocaleDateString("de-DE", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
       dayDefinitions.push({
         id: "day-1",
         dayNumber: 1,
-        dateStr: "Tag 1",
+        dateStr,
         city: "Start",
+        formattedDate,
         isPool: false,
       });
     }
 
     return dayDefinitions.map((def) => {
-      let dayItems = localItems
-        .filter((item) => (def.isPool ? item.dayId === "pool" || !item.dayId : item.dayId === def.id))
-        .sort((a, b) => a.order - b.order);
-
-      if (filterStampedOnly) {
-        dayItems = dayItems.filter((item) => Boolean(userCheckins[item.id]));
-      }
+      const dayItems = localItems.filter((item) =>
+        def.isPool ? item.dayId === "pool" || !item.dayId : item.dayId === def.id
+      );
 
       return {
         ...def,
         items: dayItems,
       };
     });
-  }, [trip?.startDate, trip?.endDate, trip?.stops, localItems, filterStampedOnly, userCheckins]);
+  }, [trip?.startDate, trip?.endDate, trip?.stops, localItems]);
 
   const availableDays = useMemo(() => {
     return columns.map((col) => ({
       id: col.id,
       label: col.isPool
         ? "🧩 Bausteine-Pool (Ideen & Vorrat)"
-        : `Tag ${col.dayNumber}: ${col.dateStr}${col.city ? ` (${col.city})` : ""}`,
+        : `Tag ${col.dayNumber}: ${col.city}${col.formattedDate ? ` - ${col.formattedDate}` : ""}`,
     }));
   }, [columns]);
 
@@ -304,6 +377,9 @@ export function TimelineContainer({
         const activeCurrentItem = currentItems[activeIndex];
         const overCurrentItem = currentItems[overIndex];
 
+        // Only move between different days during drag-over!
+        // Within the same day, SortableContext visually reorders via CSS transforms,
+        // and the final order is committed in handleDragEnd without causing infinite update loops.
         if (activeCurrentItem.dayId !== overCurrentItem.dayId) {
           const updatedItem = {
             ...activeCurrentItem,
@@ -315,8 +391,9 @@ export function TimelineContainer({
           return arrayMove(next, activeIndex, overIndex);
         }
 
-        return arrayMove(currentItems, activeIndex, overIndex);
+        return currentItems;
       });
+      return;
     }
 
     // Moving item over an empty column (rail chips are handled on drop only)
@@ -470,7 +547,16 @@ export function TimelineContainer({
     }
 
     // 2b. Moving within or across columns
-    const columnItems = localItems.filter((i) => i.dayId === targetDayId);
+    let updatedItems = [...localItems];
+    if (isOverAnItem && activeId !== overId) {
+      const activeIdx = updatedItems.findIndex((i) => i.id === activeId);
+      const overIdx = updatedItems.findIndex((i) => i.id === overId);
+      if (activeIdx !== -1 && overIdx !== -1) {
+        updatedItems = arrayMove(updatedItems, activeIdx, overIdx);
+      }
+    }
+
+    const columnItems = updatedItems.filter((i) => i.dayId === targetDayId);
     const activeIndex = columnItems.findIndex((i) => i.id === activeId);
 
     // Compute fractional / relative timestamp order so Firestore sort matches exact visual position
@@ -489,11 +575,10 @@ export function TimelineContainer({
       newOrder = Math.round((prevOrder + nextOrder) / 2);
     }
 
-    setLocalItems((prev) =>
-      prev.map((i) =>
-        i.id === activeId ? { ...i, dayId: targetDayId, stopCity: targetCity, order: newOrder } : i
-      )
+    const finalItems = updatedItems.map((i) =>
+      i.id === activeId ? { ...i, dayId: targetDayId, stopCity: targetCity, order: newOrder } : i
     );
+    setLocalItems(finalItems);
 
     try {
       await updateTimelineItemPosition(trip.id, activeId, targetDayId, newOrder, targetCity);
@@ -642,6 +727,55 @@ export function TimelineContainer({
     }
   };
 
+  // Add a comment to a timeline item
+  const handleAddComment = async (
+    itemId: string,
+    commentData: {
+      userId: string;
+      userName: string;
+      userPhoto?: string;
+      text: string;
+      mentions?: string[];
+      replyTo?: TimelineCommentReplyTo;
+    }
+  ) => {
+    const tempComment: TimelineComment = {
+      id: "temp-" + Date.now(),
+      ...commentData,
+      createdAt: new Date().toISOString(),
+    };
+    setLocalItems((prev) =>
+      prev.map((it) =>
+        it.id === itemId
+          ? { ...it, comments: [...(it.comments || []), tempComment] }
+          : it
+      )
+    );
+
+    try {
+      await addTimelineItemComment(trip.id, itemId, commentData);
+    } catch (err) {
+      console.warn("Failed to add comment to Firestore:", err);
+    }
+  };
+
+  // Delete a comment from a timeline item
+  const handleDeleteComment = async (itemId: string, commentId: string) => {
+    setLocalItems((prev) =>
+      prev.map((it) =>
+        it.id === itemId
+          ? { ...it, comments: (it.comments || []).filter((c) => c.id !== commentId) }
+          : it
+      )
+    );
+
+    try {
+      await deleteTimelineItemComment(trip.id, itemId, commentId);
+    } catch (err) {
+      console.warn("Failed to delete comment from Firestore:", err);
+    }
+  };
+
   // ------------------------------------------------------------------
   // Compact UI helpers
   // ------------------------------------------------------------------
@@ -730,36 +864,8 @@ export function TimelineContainer({
 
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <ToolbarButton
-            id="plan-filter-stamped"
-            label="Nur gestempelte Stopps"
-            active={filterStampedOnly}
-            badge={totalStampedCount > 0 ? totalStampedCount : undefined}
-            onClick={() => setFilterStampedOnly((v) => !v)}
-          >
-            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.5} />
-          </ToolbarButton>
-
-          <button
-            type="button"
-            id="plan-toggle-passport"
-            onClick={() => setShowPassportOverview((v) => !v)}
-            aria-pressed={showPassportOverview}
-            title="Stempelpass"
-            className={`h-8 sm:h-9 px-2 sm:px-2.5 rounded-xl flex items-center gap-1 text-[11px] font-bold transition-all active:scale-95 ${
-              showPassportOverview
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/30"
-                : "bg-white dark:bg-neutral-900 text-slate-700 dark:text-neutral-200 ring-1 ring-slate-200 dark:ring-neutral-800"
-            }`}
-          >
-            <span className="text-xs sm:text-sm leading-none">🛂</span>
-            <span className="font-mono text-[10px] sm:text-[11px]">
-              {earnedStampsCount}/{PASSPORT_STAMPS.length}
-            </span>
-          </button>
-
-          <ToolbarButton
             id="plan-open-leaderboard"
-            label="Crew-Rangliste"
+            label="Crew-Rangliste & Bier-Counter"
             onClick={() => window.dispatchEvent(new CustomEvent("boystrip:navigate-tab", { detail: "passport" }))}
           >
             <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
@@ -774,43 +880,6 @@ export function TimelineContainer({
           </ToolbarButton>
         </div>
       </div>
-
-      {/* ================= COMPACT STAMP STRIP ================= */}
-      {showPassportOverview && (
-        <div className="plan-reveal rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50/60 dark:from-indigo-950/40 dark:to-purple-950/20 ring-1 ring-indigo-200/70 dark:ring-indigo-900/50 p-2">
-          <div className="flex items-center justify-between px-1 mb-1.5">
-            <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              Route-Stempel
-            </span>
-            <span className="text-[10px] text-slate-500 dark:text-neutral-400">Stopp öffnen → 🛂 tippen</span>
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-            {PASSPORT_STAMPS.map((stamp) => {
-              const isEarned = (userProfile.stamps || []).includes(stamp.code);
-              return (
-                <div
-                  key={stamp.id}
-                  title={`${stamp.title} (${stamp.city}) – ${stamp.description}`}
-                  className={`shrink-0 w-16 rounded-xl p-1.5 flex flex-col items-center gap-0.5 ${
-                    isEarned
-                      ? "bg-white dark:bg-neutral-900 ring-1 ring-indigo-300 dark:ring-indigo-700 shadow-sm"
-                      : "bg-white/50 dark:bg-neutral-900/40 opacity-50 grayscale"
-                  }`}
-                >
-                  <span className="text-xl leading-none">{stamp.icon}</span>
-                  <span className="text-[9px] font-mono font-bold text-slate-700 dark:text-neutral-300 truncate max-w-full">
-                    {stamp.code}
-                  </span>
-                  <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                    {isEarned ? "✓" : `+${stamp.points}`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Drag & Drop Context (Day rail + template strip + agenda days) */}
       <DndContext
@@ -871,10 +940,13 @@ export function TimelineContainer({
               dayNumber={col.dayNumber}
               dateStr={col.dateStr}
               city={col.city}
+              formattedDate={col.formattedDate}
               isPool={col.isPool}
               items={col.items}
               currentUserId={currentUserId}
               currentUserName={currentUserName}
+              currentUserPhoto={currentUserPhoto}
+              participants={participants}
               isCollapsed={collapsedDays.has(col.id)}
               isEditMode={isEditMode}
               expandedItemId={expandedItemId}
@@ -887,8 +959,8 @@ export function TimelineContainer({
               onProposeTime={handleProposeTime}
               onVoteTimeProposal={handleVoteTimeProposal}
               onApplyTime={handleApplyTime}
-              userCheckins={userCheckins}
-              onCheckIn={onCheckIn}
+              onAddComment={handleAddComment}
+              onDeleteComment={handleDeleteComment}
             />
           ))}
         </div>

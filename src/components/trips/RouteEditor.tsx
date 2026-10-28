@@ -56,7 +56,7 @@ export function RouteEditor({
     const newStop: TripStop = {
       id: `stop-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       city,
-      country: country || undefined,
+      country: country || "",
       order: stops.length,
     };
 

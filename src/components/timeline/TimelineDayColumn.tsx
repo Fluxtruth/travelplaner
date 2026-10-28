@@ -3,9 +3,10 @@
 import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { TimelineItem } from "@/types";
+import { TimelineItem, TimelineCommentReplyTo } from "@/types";
 import { TimelineCard } from "./TimelineCard";
 import { Category3DIcon } from "./Category3DIcon";
+import { ParticipantInfo } from "./TimelineItemComments";
 import { Plus, ChevronDown } from "lucide-react";
 
 interface TimelineDayColumnProps {
@@ -13,11 +14,13 @@ interface TimelineDayColumnProps {
   dayNumber: number;
   dateStr: string;
   city: string;
+  formattedDate?: string;
   isPool?: boolean;
   items: TimelineItem[];
   currentUserId?: string;
   currentUserName?: string;
-  userCheckins?: Record<string, string>;
+  currentUserPhoto?: string | null;
+  participants?: ParticipantInfo[];
   isCollapsed?: boolean;
   isEditMode?: boolean;
   expandedItemId?: string | null;
@@ -30,7 +33,18 @@ interface TimelineDayColumnProps {
   onProposeTime?: (itemId: string, proposedTime: string) => void;
   onVoteTimeProposal?: (itemId: string, proposalId: string) => void;
   onApplyTime?: (itemId: string, newTime: string) => void;
-  onCheckIn?: (itemId: string, itemTitle: string, itemType: string, city: string) => void;
+  onAddComment?: (
+    itemId: string,
+    commentData: {
+      userId: string;
+      userName: string;
+      userPhoto?: string;
+      text: string;
+      mentions?: string[];
+      replyTo?: TimelineCommentReplyTo;
+    }
+  ) => Promise<void> | void;
+  onDeleteComment?: (itemId: string, commentId: string) => Promise<void> | void;
 }
 
 /**
@@ -42,11 +56,13 @@ export function TimelineDayColumn({
   dayNumber,
   dateStr,
   city,
+  formattedDate,
   isPool = false,
   items,
   currentUserId,
   currentUserName,
-  userCheckins = {},
+  currentUserPhoto,
+  participants = [],
   isCollapsed = false,
   isEditMode = false,
   expandedItemId = null,
@@ -59,21 +75,32 @@ export function TimelineDayColumn({
   onProposeTime,
   onVoteTimeProposal,
   onApplyTime,
-  onCheckIn,
+  onAddComment,
+  onDeleteComment,
 }: TimelineDayColumnProps) {
+  const itemIds = React.useMemo(() => items.map((i) => i.id), [items]);
+  const droppableData = React.useMemo(
+    () => ({ type: "Column", dayId, city, isPool }),
+    [dayId, city, isPool]
+  );
+
   const { setNodeRef, isOver } = useDroppable({
     id: dayId,
-    data: { type: "Column", dayId, city, isPool },
+    data: droppableData,
   });
 
-  const stampedCount = items.filter((i) => Boolean(userCheckins[i.id])).length;
   const isTransferDay = city.includes("→");
+  const displayTitle = isPool
+    ? "Ideen-Pool"
+    : formattedDate
+    ? `${city} - ${formattedDate}`
+    : city;
 
   return (
     <section
       ref={setNodeRef}
       id={`plan-day-${dayId}`}
-      aria-label={isPool ? "Ideen-Pool" : `Tag ${dayNumber}: ${city}`}
+      aria-label={isPool ? "Ideen-Pool" : `Tag ${dayNumber}: ${displayTitle}`}
       className={`scroll-mt-32 rounded-2xl border transition-all duration-200 ${
         isOver
           ? "border-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/30 ring-2 ring-indigo-500/25"
@@ -111,24 +138,25 @@ export function TimelineDayColumn({
           </span>
 
           <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5 text-[13px] font-bold text-slate-900 dark:text-white truncate">
-              <span className="truncate">{isPool ? "Ideen-Pool" : city}</span>
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+              <span className="text-[13px] font-bold text-slate-900 dark:text-white truncate">
+                {isPool ? "Ideen-Pool" : city}
+              </span>
+              {!isPool && formattedDate && (
+                <span className="text-xs font-bold font-mono text-slate-600 dark:text-neutral-300 shrink-0">
+                  - {formattedDate}
+                </span>
+              )}
               {isTransferDay && (
                 <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-px rounded bg-cyan-100 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300">
                   Reisetag
                 </span>
               )}
-            </span>
-            <span className="block text-[11px] text-slate-500 dark:text-neutral-400 truncate">
+            </div>
+            <span className="block text-[11px] text-slate-500 dark:text-neutral-400 truncate mt-0.5">
               {isPool ? "Noch nicht eingeplant" : dateStr}
               {items.length === 0 && !isPool && " · frei"}
-              {items.length > 0 && (
-                <>
-                  {" · "}
-                  {items.length} {items.length === 1 ? "Stopp" : "Stopps"}
-                  {stampedCount > 0 && ` · ${stampedCount} 🛂`}
-                </>
-              )}
+              {items.length > 0 && ` · ${items.length} ${items.length === 1 ? "Stopp" : "Stopps"}`}
             </span>
           </span>
 
@@ -175,14 +203,15 @@ export function TimelineDayColumn({
       {/* ================= BODY ================= */}
       {!isCollapsed && (
         <div className="px-1.5 pb-1.5 flex flex-col gap-1.5">
-          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
             {items.map((item) => (
               <TimelineCard
                 key={item.id}
                 item={item}
                 currentUserId={currentUserId}
                 currentUserName={currentUserName}
-                isCheckedIn={Boolean(userCheckins[item.id])}
+                currentUserPhoto={currentUserPhoto}
+                participants={participants}
                 isEditMode={isEditMode}
                 isExpanded={expandedItemId === item.id}
                 onToggleExpand={onToggleExpand}
@@ -192,7 +221,8 @@ export function TimelineDayColumn({
                 onProposeTime={onProposeTime}
                 onVoteTimeProposal={onVoteTimeProposal}
                 onApplyTime={onApplyTime}
-                onCheckIn={onCheckIn}
+                onAddComment={onAddComment}
+                onDeleteComment={onDeleteComment}
               />
             ))}
           </SortableContext>

@@ -19,8 +19,11 @@ import {
   ChevronDown,
   Pencil,
   X,
+  MessageSquare,
 } from "lucide-react";
 import { Category3DIcon } from "./Category3DIcon";
+import { TimelineItemComments, ParticipantInfo } from "./TimelineItemComments";
+import { TimelineCommentReplyTo } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Shared category look & feel (used by cards, day headers & quick-add strip)
@@ -57,7 +60,8 @@ interface TimelineCardProps {
   item: TimelineItem;
   currentUserId?: string;
   currentUserName?: string;
-  isCheckedIn?: boolean;
+  currentUserPhoto?: string | null;
+  participants?: ParticipantInfo[];
   isOverlay?: boolean;
   isExpanded?: boolean;
   isEditMode?: boolean;
@@ -68,13 +72,26 @@ interface TimelineCardProps {
   onProposeTime?: (itemId: string, proposedTime: string) => void;
   onVoteTimeProposal?: (itemId: string, proposalId: string) => void;
   onApplyTime?: (itemId: string, newTime: string) => void;
-  onCheckIn?: (itemId: string, itemTitle: string, itemType: string, city: string) => void;
+  onAddComment?: (
+    itemId: string,
+    commentData: {
+      userId: string;
+      userName: string;
+      userPhoto?: string;
+      text: string;
+      mentions?: string[];
+      replyTo?: TimelineCommentReplyTo;
+    }
+  ) => Promise<void> | void;
+  onDeleteComment?: (itemId: string, commentId: string) => Promise<void> | void;
 }
 
 export function TimelineCard({
   item,
   currentUserId = "guest-user",
-  isCheckedIn = false,
+  currentUserName,
+  currentUserPhoto,
+  participants = [],
   isOverlay = false,
   isExpanded = false,
   isEditMode = false,
@@ -85,15 +102,18 @@ export function TimelineCard({
   onProposeTime,
   onVoteTimeProposal,
   onApplyTime,
-  onCheckIn,
+  onAddComment,
+  onDeleteComment,
 }: TimelineCardProps) {
   const [showTimeVoting, setShowTimeVoting] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const [newTimeInput, setNewTimeInput] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const sortableData = React.useMemo(() => ({ type: "Item", item }), [item]);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
-    data: { type: "Item", item },
+    data: sortableData,
     disabled: isOverlay,
   });
 
@@ -117,6 +137,8 @@ export function TimelineCard({
   const upVotesCount = Object.values(votes).filter((v) => v === "up").length;
   const downVotesCount = Object.values(votes).filter((v) => v === "down").length;
   const userVote = currentUserId ? votes[currentUserId] : undefined;
+  const netScore = upVotesCount - downVotesCount;
+  const hasVotes = upVotesCount > 0 || downVotesCount > 0;
 
   // Time proposals
   const timeProposals = item.timeProposals || [];
@@ -146,8 +168,6 @@ export function TimelineCard({
             ? "bg-white dark:bg-neutral-900 border-indigo-400 shadow-2xl shadow-indigo-500/25 ring-2 ring-indigo-500/30 scale-[1.03]"
             : isExpanded
             ? "bg-white dark:bg-neutral-900 border-indigo-300/80 dark:border-indigo-500/40 shadow-lg shadow-indigo-500/5"
-            : isCheckedIn
-            ? "bg-indigo-50/60 dark:bg-indigo-950/20 border-indigo-200/80 dark:border-indigo-900/50"
             : "bg-white/90 dark:bg-neutral-900/70 border-slate-200/80 dark:border-neutral-800 hover:border-slate-300 dark:hover:border-neutral-700"
         }`}
       >
@@ -175,12 +195,7 @@ export function TimelineCard({
             {/* Category icon tile */}
             <span className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${meta.tile}`}>
               <Category3DIcon type={item.type} size={24} animateOnHover={false} />
-              {isCheckedIn && (
-                <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center ring-2 ring-white dark:ring-neutral-900">
-                  <Check className="w-2 h-2 sm:w-2.5 sm:h-2.5" strokeWidth={3.5} />
-                </span>
-              )}
-              {isDraft && !isCheckedIn && (
+              {isDraft && (
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-neutral-900" />
               )}
             </span>
@@ -219,16 +234,61 @@ export function TimelineCard({
                 {proposalsCount}
               </span>
             )}
-            {upVotesCount > 0 && (
+            {hasVotes && (
+              netScore > 0 ? (
+                <span
+                  title={`${upVotesCount} Dafür, ${downVotesCount} Dagegen (Gesamtstand: +${netScore})`}
+                  className={`inline-flex items-center gap-0.5 h-5 px-1.5 rounded-md text-[10px] font-bold ${
+                    userVote === "up"
+                      ? "bg-emerald-500 text-white shadow-xs"
+                      : "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30"
+                  }`}
+                >
+                  <ThumbsUp className="w-2.5 h-2.5" />
+                  <span>+{netScore}</span>
+                </span>
+              ) : netScore < 0 ? (
+                <span
+                  title={`${upVotesCount} Dafür, ${downVotesCount} Dagegen (Gesamtstand: ${netScore})`}
+                  className={`inline-flex items-center gap-0.5 h-5 px-1.5 rounded-md text-[10px] font-bold ${
+                    userVote === "down"
+                      ? "bg-rose-500 text-white shadow-xs"
+                      : "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30"
+                  }`}
+                >
+                  <ThumbsDown className="w-2.5 h-2.5" />
+                  <span>{netScore}</span>
+                </span>
+              ) : (
+                <span
+                  title={`${upVotesCount} Dafür, ${downVotesCount} Dagegen (Ausgeglichen: 0)`}
+                  className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-400 border border-slate-200 dark:border-neutral-700"
+                >
+                  <span className="flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
+                    <ThumbsUp className="w-2 h-2" />
+                    {upVotesCount}
+                  </span>
+                  <span className="text-slate-300 dark:text-neutral-600">/</span>
+                  <span className="flex items-center gap-0.5 text-rose-600 dark:text-rose-400">
+                    <ThumbsDown className="w-2 h-2" />
+                    {downVotesCount}
+                  </span>
+                </span>
+              )
+            )}
+            {/* Comment Count Badge (Header) */}
+            {(item.comments?.length || 0) > 0 && (
               <span
-                className={`inline-flex items-center gap-0.5 h-5 px-1.5 rounded-md text-[10px] font-bold ${
-                  userVote === "up"
-                    ? "bg-emerald-500 text-white"
-                    : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isExpanded) onToggleExpand?.(item.id);
+                  setShowComments(true);
+                }}
+                className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                title={`${item.comments?.length} ${item.comments?.length === 1 ? "Kommentar" : "Kommentare"}`}
               >
-                <ThumbsUp className="w-2.5 h-2.5" />
-                {upVotesCount}
+                <MessageSquare className="w-2.5 h-2.5" />
+                <span>{item.comments?.length}</span>
               </span>
             )}
             {!isOverlay && (
@@ -295,6 +355,24 @@ export function TimelineCard({
                   <Clock className="w-3.5 h-3.5" />
                   {proposalsCount > 0 && <span className="text-[11px] font-bold">{proposalsCount}</span>}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowComments((v) => !v)}
+                  aria-label="Kommentare & Diskussion"
+                  title="Kommentare & Chatverlauf"
+                  className={`${iconBtn} ${
+                    showComments
+                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                      : (item.comments?.length || 0) > 0
+                      ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60"
+                      : iconBtnIdle
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  {(item.comments?.length || 0) > 0 && (
+                    <span className="text-[11px] font-bold">{item.comments?.length}</span>
+                  )}
+                </button>
                 {item.url && (
                   <a
                     href={item.url}
@@ -310,26 +388,6 @@ export function TimelineCard({
               </div>
 
               <div className="flex items-center gap-1 shrink-0 ml-auto">
-                {onCheckIn &&
-                  (isCheckedIn ? (
-                    <span className={`${iconBtn} bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300`}>
-                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                      <span className="text-[11px] font-bold">Gestempelt</span>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onCheckIn(item.id, item.title, item.type, item.stopCity || "Reisestopp")
-                      }
-                      title={`Abstempeln (+${stampPoints} XP)`}
-                      className={`${iconBtn} bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm shadow-indigo-500/30`}
-                    >
-                      <span className="text-xs leading-none">🛂</span>
-                      <span className="text-[11px] font-bold">+{stampPoints}</span>
-                    </button>
-                  ))}
-
                 {onEdit && (
                   <button
                     type="button"
@@ -445,6 +503,23 @@ export function TimelineCard({
                     <X className="w-4 h-4" />
                   </button>
                 </form>
+              </div>
+            )}
+
+            {/* Comments Thread & Chatverlauf */}
+            {showComments && onAddComment && (
+              <div className="plan-reveal mt-2">
+                <TimelineItemComments
+                  itemId={item.id}
+                  itemTitle={item.title}
+                  comments={item.comments}
+                  currentUserId={currentUserId}
+                  currentUserName={currentUserName || "Traveler"}
+                  currentUserPhoto={currentUserPhoto}
+                  participants={participants}
+                  onAddComment={onAddComment}
+                  onDeleteComment={onDeleteComment}
+                />
               </div>
             )}
           </div>

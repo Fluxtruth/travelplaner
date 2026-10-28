@@ -20,6 +20,23 @@ export interface TimeProposal {
   createdAt: string;
 }
 
+export interface TimelineCommentReplyTo {
+  id: string;
+  userName: string;
+  text: string;
+}
+
+export interface TimelineComment {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string;
+  text: string;
+  createdAt: string; // ISO date string
+  mentions?: string[]; // e.g. ["Max", "Felix"]
+  replyTo?: TimelineCommentReplyTo;
+}
+
 export interface TimelineItem {
   id: string;
   tripId: string;
@@ -40,6 +57,7 @@ export interface TimelineItem {
   createdByName?: string;
   votes?: Record<string, "up" | "down">; // Map: userId -> "up" | "down"
   timeProposals?: TimeProposal[];        // Zeit-Vorschläge der Gruppe mit Abstimmung
+  comments?: TimelineComment[];          // Kommentare & Chatverlauf an diesem Baustein
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
 }
@@ -49,6 +67,7 @@ export interface DayColumnData {
   dayNumber: number;
   dateStr: string; // z.B. "Fr., 10. Juli" oder "Ideen & Backlog"
   city: string; // z.B. "Prag" oder "Bausteine-Pool"
+  formattedDate?: string; // z.B. "20.10.26"
   isPool?: boolean; // Kennzeichnet den Bausteine-Pool
   items: TimelineItem[];
 }

@@ -7,6 +7,7 @@ import {
   inviteUserToTripByEmail,
   removeParticipantFromTrip,
   updateTripName,
+  deleteTrip,
 } from "@/lib/firebase/firestore";
 import {
   X,
@@ -46,12 +47,29 @@ export function ProjectAccessModal({
   const [isInvitingEmail, setIsInvitingEmail] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   React.useEffect(() => {
     setTripName(trip.name);
   }, [trip.name]);
 
   if (!isOpen) return null;
+
+  const handleDeleteTrip = async () => {
+    if (!isOwner) return;
+    setIsDeletingTrip(true);
+    try {
+      await deleteTrip(trip.id);
+      onClose();
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Failed to delete trip:", err);
+      setMessage("Fehler beim Löschen der Reise.");
+      setIsDeletingTrip(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   const handleUpdateName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,6 +339,53 @@ export function ProjectAccessModal({
               })}
             </div>
           </div>
+
+          {/* Gefahrenzone: Reise löschen (Nur Inhaber) */}
+          {isOwner && (
+            <div className="pt-3 border-t border-red-200/80 dark:border-red-950/80">
+              <div className="p-3.5 rounded-2xl bg-red-50/80 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Gefahrenzone: Reise löschen
+                  </h4>
+                  <p className="text-[11px] text-red-600/80 dark:text-red-400/70 mt-0.5 leading-snug">
+                    Löscht diese Reise und alle zugehörigen Planungsdaten unwiderruflich.
+                  </p>
+                </div>
+
+                {showDeleteConfirm ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeletingTrip}
+                      className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-200 dark:bg-neutral-800 text-slate-700 dark:text-neutral-300 hover:bg-slate-300 dark:hover:bg-neutral-700 transition-colors"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteTrip}
+                      disabled={isDeletingTrip}
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors flex items-center gap-1.5"
+                    >
+                      {isDeletingTrip ? "Wird gelöscht..." : "Ja, wirklich löschen"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="shrink-0 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Reise löschen</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

@@ -21,14 +21,12 @@ import {
   joinTripByInviteCode,
   subscribeToGamification,
   subscribeToExperienceContest,
-  recordLocationCheckin,
   updateTripName,
 } from "@/lib/firebase/firestore";
 import { ActiveUsersPresence } from "@/components/presence/ActiveUsersPresence";
 import { TimelineContainer } from "@/components/timeline/TimelineContainer";
 import { FinalDashboard } from "@/components/voting/FinalDashboard";
 import { DigitalPassportView } from "@/components/gamification/DigitalPassportView";
-import { findMatchingStamp, calculateLevel } from "@/lib/gamification/catalog";
 import { ShareTripModal } from "@/components/common/ShareTripModal";
 import { ProjectAccessModal } from "@/components/common/ProjectAccessModal";
 import { EditRouteModal } from "@/components/trips/EditRouteModal";
@@ -75,7 +73,6 @@ function TripPlanningContent() {
   const [loadingTrip, setLoadingTrip] = useState(true);
   const [gamificationProfiles, setGamificationProfiles] = useState<UserGamificationProfile[]>([]);
   const [contestCandidates, setContestCandidates] = useState<ExperienceContestItem[]>([]);
-  const [localCheckins, setLocalCheckins] = useState<Record<string, string>>({});
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [isSavingTitle, setIsSavingTitle] = useState(false);
@@ -188,81 +185,6 @@ function TripPlanningContent() {
   const isOwner = user ? activeTrip.ownerId === user.uid : false;
   const isParticipant = user ? activeTrip.participantIds?.includes(user.uid) || isOwner : false;
   const isPublic = activeTrip.visibility === "public";
-
-  const myGamificationProfile = gamificationProfiles.find((p) => p.userId === currentUserId);
-  const userCheckins = {
-    ...(myGamificationProfile?.checkins || {}),
-    ...localCheckins,
-  };
-
-  const handleLocationCheckin = async (
-    itemId: string,
-    itemTitle: string,
-    itemType: string,
-    city: string
-  ) => {
-    const nowIso = new Date().toISOString();
-    // 1. Optimistic check-in mark
-    setLocalCheckins((prev) => ({ ...prev, [itemId]: nowIso }));
-
-    // 2. Optimistic profile update (XP, level, stamp)
-    const matchedStamp = findMatchingStamp(itemTitle, itemType, city);
-    const earnedPoints = matchedStamp ? matchedStamp.points : 50;
-
-    // Trigger global gamification state & header XP animation
-    addXp(earnedPoints, itemTitle);
-
-    setGamificationProfiles((prev) => {
-      const existing = prev.find((p) => p.userId === currentUserId);
-      const currentStamps = existing?.stamps || ["BER-GATE"];
-      const newStamps = matchedStamp && !currentStamps.includes(matchedStamp.code)
-        ? [...currentStamps, matchedStamp.code]
-        : currentStamps;
-      const newPoints = (existing?.points || 150) + earnedPoints;
-      const lvl = calculateLevel(newPoints);
-
-      const updatedProfile: UserGamificationProfile = {
-        userId: currentUserId,
-        tripId,
-        displayName: user?.displayName || "Traveler",
-        photoURL: user?.photoURL || undefined,
-        points: newPoints,
-        level: lvl.level,
-        levelTitle: lvl.title,
-        beerCount: existing?.beerCount || 0,
-        currentStreak: (existing?.currentStreak || 1) + 1,
-        lastActiveDate: nowIso.split("T")[0],
-        stamps: newStamps,
-        badges: existing?.badges || ["badge-first-checkin"],
-        checkins: { ...(existing?.checkins || {}), [itemId]: nowIso },
-      };
-
-      const others = prev.filter((p) => p.userId !== currentUserId);
-      return [updatedProfile, ...others];
-    });
-
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6"],
-    });
-
-    try {
-      await recordLocationCheckin(
-        tripId,
-        currentUserId,
-        user?.displayName || "Traveler",
-        user?.photoURL || undefined,
-        itemId,
-        itemTitle,
-        itemType,
-        city
-      );
-    } catch (err) {
-      console.warn("Firestore check-in sync:", err);
-    }
-  };
 
   const handleJoinViaCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -476,7 +398,7 @@ function TripPlanningContent() {
                 <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                   {activeTrip.name}
                 </h1>
-                {(isParticipant || isOwner) && (
+                {isOwner && (
                   <button
                     onClick={() => {
                       setTitleDraft(activeTrip.name);
@@ -572,11 +494,11 @@ function TripPlanningContent() {
           )}
         </div>
 
-        {(isParticipant || isOwner) && (
+        {isOwner && (
           <button
             onClick={() => setIsRouteModalOpen(true)}
             className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 text-xs font-bold border border-slate-200 dark:border-neutral-700 transition-colors shrink-0 cursor-pointer w-full sm:w-auto"
-            title="Reiseroute und Zwischenstopps anpassen"
+            title="Reiseroute und Zwischenstopps anpassen (Reiseleiter)"
           >
             <Pencil className="w-3 h-3 text-slate-500" />
             <span>Route anpassen</span>
@@ -623,10 +545,10 @@ function TripPlanningContent() {
               : "text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
-          <Award className="w-4 h-4 text-amber-500" />
-          <span>Rangliste <span className="hidden sm:inline">& Badges</span></span>
-          <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[10px] border border-amber-500/20">
-            {contextProfile.points} XP
+          <span className="text-sm">🍺</span>
+          <span>Bier-Rangliste <span className="hidden sm:inline">& Badges</span></span>
+          <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/20">
+            {contextProfile.beerCount ?? 0} Biere
           </span>
         </button>
       </div>
@@ -639,8 +561,13 @@ function TripPlanningContent() {
             items={timelineItems}
             currentUserId={currentUserId}
             currentUserName={user?.displayName || "Traveler"}
-            userCheckins={userCheckins}
-            onCheckIn={handleLocationCheckin}
+            currentUserPhoto={user?.photoURL}
+            participants={gamificationProfiles.map((p) => ({
+              userId: p.userId,
+              displayName: p.displayName,
+              photoURL: p.photoURL,
+              role: p.levelTitle,
+            }))}
           />
         )}
 
@@ -663,6 +590,7 @@ function TripPlanningContent() {
             currentUserId={currentUserId}
             currentUserName={user?.displayName || "Traveler"}
             currentUserPhoto={user?.photoURL}
+            isOwner={isOwner}
             onGoToTimeline={() => setActiveTab("timeline")}
           />
         )}
@@ -687,15 +615,28 @@ function TripPlanningContent() {
         />
       )}
 
-      {/* Edit Route Modal */}
-      {isRouteModalOpen && (
+      {/* Edit Route Modal (Owner only) */}
+      {isRouteModalOpen && isOwner && (
         <EditRouteModal
           tripId={tripId}
           isOpen={isRouteModalOpen}
+          isOwner={isOwner}
           onClose={() => setIsRouteModalOpen(false)}
           initialStops={activeTrip.stops}
-          onStopsUpdated={(newStops) => {
-            setTrip((prev) => (prev ? { ...prev, stops: newStops } : { ...fallbackTrip, stops: newStops }));
+          initialStartDate={activeTrip.startDate}
+          initialEndDate={activeTrip.endDate}
+          onStopsUpdated={(newStops, newStartDate, newEndDate) => {
+            setTrip((prev) => (prev ? {
+              ...prev,
+              stops: newStops,
+              ...(newStartDate !== undefined ? { startDate: newStartDate } : {}),
+              ...(newEndDate !== undefined ? { endDate: newEndDate } : {}),
+            } : {
+              ...fallbackTrip,
+              stops: newStops,
+              ...(newStartDate !== undefined ? { startDate: newStartDate } : {}),
+              ...(newEndDate !== undefined ? { endDate: newEndDate } : {}),
+            }));
           }}
         />
       )}

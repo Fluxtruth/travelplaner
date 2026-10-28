@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase/firestore";
+import { BadgeAchievement } from "./gamification";
 
 export type TripVisibility = "private" | "public";
 
@@ -23,6 +24,7 @@ export interface Trip {
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
   stops: (TripStop | string)[];
+  customBadges?: BadgeAchievement[];
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
 }

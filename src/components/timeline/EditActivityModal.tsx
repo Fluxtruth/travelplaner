@@ -13,10 +13,12 @@ import {
   Tag,
   Link as LinkIcon,
   Image as ImageIcon,
-  Check,
   Sparkles,
   Layers,
   Save,
+  EyeOff,
+  Eye,
+  AlertCircle,
 } from "lucide-react";
 
 interface EditActivityModalProps {
@@ -40,9 +42,12 @@ export function EditActivityModal({
   const [time, setTime] = useState(item.time || "");
   const [location, setLocation] = useState(item.location || "");
   const [url, setUrl] = useState(item.url || "");
-  const [customImageUrl, setCustomImageUrl] = useState(item.imageUrl || "");
+  const [customImageUrl, setCustomImageUrl] = useState(item.imageUrl && item.imageUrl !== "none" ? item.imageUrl : "");
+  // If explicitly "none", start deactivated. Otherwise if there was an image or url, start activated.
+  const [showPreviewImage, setShowPreviewImage] = useState<boolean>(item.imageUrl !== "none");
   const [notes, setNotes] = useState(item.notes || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const categories: Array<{ id: ActivityType; label: string }> = [
     { id: "restaurant", label: "Restaurant / Food" },
@@ -55,7 +60,8 @@ export function EditActivityModal({
   ];
 
   const linkMeta = url.trim() ? getLinkMetadata(url, type) : null;
-  const effectiveImageUrl = customImageUrl.trim() || getBausteinImage(customImageUrl, url, type);
+  const candidateImage = customImageUrl.trim() || (url.trim() ? getBausteinImage(undefined, url, type) : null);
+  const effectiveImageUrl = showPreviewImage ? candidateImage : null;
   const timePresets = ["09:00", "12:30", "15:00", "18:30", "21:00"];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,17 +69,22 @@ export function EditActivityModal({
     if (!title.trim()) return;
 
     setIsSubmitting(true);
+    setErrorMsg(null);
     try {
-      const normalizedUrl = url.trim() ? normalizeUrl(url) : undefined;
+      const normalizedUrl = url.trim() ? normalizeUrl(url) : "";
+      const finalImageUrl = showPreviewImage
+        ? (customImageUrl.trim() || (url.trim() ? getBausteinImage(undefined, url, type) : "") || "")
+        : "none";
+
       const updates = {
         title: title.trim(),
         type,
         dayId: selectedDayId,
-        time: time.trim() || undefined,
-        location: location.trim() || undefined,
+        time: time.trim(),
+        location: location.trim(),
         url: normalizedUrl,
-        imageUrl: effectiveImageUrl || undefined,
-        notes: notes.trim() || undefined,
+        imageUrl: finalImageUrl,
+        notes: notes.trim(),
       };
 
       await updateTimelineItem(tripId, item.id, updates);
@@ -82,12 +93,18 @@ export function EditActivityModal({
         onSave({
           ...item,
           ...updates,
+          time: time.trim() || undefined,
+          location: location.trim() || undefined,
+          url: normalizedUrl || undefined,
+          imageUrl: finalImageUrl === "none" ? undefined : (finalImageUrl || undefined),
+          notes: notes.trim() || undefined,
           updatedAt: new Date().toISOString(),
         });
       }
       onClose();
-    } catch (err) {
-      console.warn("Error updating activity:", err);
+    } catch (err: any) {
+      console.error("Error updating activity:", err);
+      setErrorMsg(err?.message || "Fehler beim Speichern der Änderungen.");
       setIsSubmitting(false);
     }
   };
@@ -120,6 +137,14 @@ export function EditActivityModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Error message banner if any */}
+        {errorMsg && (
+          <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center gap-2 text-rose-700 dark:text-rose-300 text-xs">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
@@ -241,56 +266,113 @@ export function EditActivityModal({
             </div>
           </div>
 
-          {/* Location & Image Preview */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                Ort / Treffpunkt
-              </label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="z.B. Karlsbrücke / Altstadt"
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
-                Vorschaubild (optional URL)
-              </label>
-              <input
-                type="text"
-                value={customImageUrl}
-                onChange={(e) => setCustomImageUrl(e.target.value)}
-                placeholder="https://images... (oder leer lassen)"
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs focus:outline-none focus:border-blue-500 transition-colors"
-              />
-            </div>
+          {/* Ort / Treffpunkt */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-slate-400" />
+              Ort / Treffpunkt
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="z.B. Karlsbrücke / Altstadt"
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+            />
           </div>
 
-          {/* Live Thumbnail Preview */}
-          {effectiveImageUrl && (
-            <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-              <img
-                src={effectiveImageUrl}
-                alt="Vorschau"
-                className="w-16 h-12 object-cover rounded-xl border border-slate-200 dark:border-slate-800 shrink-0"
-              />
-              <div className="min-w-0 flex-1">
-                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-emerald-500" />
-                  Vorschaubild aktiv
-                </span>
-                <p className="text-[10px] text-slate-400 truncate">
-                  Wird auf der Karte in der Kalenderansicht angezeigt
-                </p>
-              </div>
+          {/* Vorschaubild Sektion mit Ein/Aus-Schalter */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
+                Vorschaubild (Thumbnail)
+              </label>
+
+              {/* Toggle-Button: Vorschaubild an / aus */}
+              <button
+                type="button"
+                onClick={() => setShowPreviewImage((prev) => !prev)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
+                  showPreviewImage
+                    ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700/60"
+                    : "bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 border border-slate-200 dark:border-neutral-700"
+                }`}
+                title={showPreviewImage ? "Vorschaubild ausschalten" : "Vorschaubild aktivieren"}
+              >
+                {showPreviewImage ? (
+                  <>
+                    <Eye className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    <span>Bild aktiv</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-3 h-3 text-slate-400" />
+                    <span>Bild aus</span>
+                  </>
+                )}
+              </button>
             </div>
-          )}
+
+            {showPreviewImage ? (
+              <div className="space-y-2.5">
+                <input
+                  type="text"
+                  value={customImageUrl}
+                  onChange={(e) => setCustomImageUrl(e.target.value)}
+                  placeholder="Eigene Bild-URL einfügen (optional, sonst automatisches Foto)"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs focus:outline-none focus:border-blue-500 transition-colors"
+                />
+
+                {effectiveImageUrl ? (
+                  <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={effectiveImageUrl}
+                        alt="Vorschau"
+                        className="w-16 h-12 object-cover rounded-xl border border-slate-200 dark:border-slate-800 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-emerald-500" />
+                          Vorschaubild aktiv
+                        </span>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          Wird auf der Karte in der Kalenderansicht angezeigt
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPreviewImage(false)}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-900/50 transition-colors shrink-0 cursor-pointer"
+                    >
+                      Ausschalten
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 dark:text-neutral-500">
+                    Trage oben einen Link oder eine Bild-URL ein, um automatisch ein Vorschaubild zu generieren.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-dashed border-slate-300 dark:border-neutral-800 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-neutral-400 text-xs">
+                  <EyeOff className="w-4 h-4 text-slate-400" />
+                  <span>Kein Vorschaubild (kompakte Ansicht)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewImage(true)}
+                  className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 text-xs font-semibold border border-blue-200 dark:border-blue-500/20 transition-colors cursor-pointer"
+                >
+                  Bild aktivieren
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Notes */}
           <div>
@@ -312,17 +394,17 @@ export function EditActivityModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold transition-colors"
+              className="px-4 py-2.5 rounded-xl text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold transition-colors cursor-pointer"
             >
               Abbrechen
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !title.trim()}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              {isSubmitting ? "Wird gespeichert..." : "Änderungen speichern"}
+              <span>{isSubmitting ? "Wird gespeichert..." : "Änderungen speichern"}</span>
             </button>
           </div>
         </form>

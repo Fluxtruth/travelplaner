@@ -8,6 +8,7 @@ import {
   joinTripByInviteCode,
   subscribeToUserTrips,
   subscribeToPublicTrips,
+  deleteTrip,
 } from "@/lib/firebase/firestore";
 import { Trip } from "@/types";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -31,6 +32,7 @@ import {
   Award,
   Trophy,
   Check,
+  Trash2,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -46,6 +48,22 @@ export default function HomePage() {
   const [landingInviteCode, setLandingInviteCode] = useState("");
   const [joinStatus, setJoinStatus] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [tripToDelete, setTripToDelete] = useState<Trip | null>(null);
+  const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+
+  const handleDeleteTripConfirm = async () => {
+    if (!tripToDelete || tripToDelete.ownerId !== user?.uid) return;
+    setIsDeletingTrip(true);
+    try {
+      await deleteTrip(tripToDelete.id);
+      setTripToDelete(null);
+    } catch (err) {
+      console.error("Failed to delete trip:", err);
+      alert("Fehler beim Löschen der Reise.");
+    } finally {
+      setIsDeletingTrip(false);
+    }
+  };
 
   // Subscribe to Cloud Firestore user trips & public trips when authenticated
   useEffect(() => {
@@ -309,9 +327,25 @@ export default function HomePage() {
                         )}
                       </div>
 
-                      <span className="text-[11px] font-mono text-slate-400 dark:text-neutral-500">
-                        Code: {trip.inviteCode}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-mono text-slate-400 dark:text-neutral-500">
+                          Code: {trip.inviteCode}
+                        </span>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setTripToDelete(trip);
+                            }}
+                            title="Reise löschen"
+                            className="p-1 rounded-lg text-slate-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">
@@ -418,6 +452,53 @@ export default function HomePage() {
         onClose={() => setSettingsModalOpen(false)}
         onOpenAuth={() => setAuthModalOpen(true)}
       />
+
+      {/* Delete Trip Confirmation Modal (Owner Only) */}
+      {tripToDelete && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => {
+            if (!isDeletingTrip) setTripToDelete(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 p-6 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              Reise wirklich löschen?
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-600 dark:text-neutral-400 leading-relaxed">
+              Möchtest du die Reise <span className="font-semibold text-slate-900 dark:text-white">„{tripToDelete.name}“</span> wirklich unwiderruflich löschen? Alle zugehörigen Stationen, Abstimmungen und Aktivitäten werden dabei dauerhaft gelöscht.
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setTripToDelete(null)}
+                disabled={isDeletingTrip}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 text-xs font-semibold transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteTripConfirm}
+                disabled={isDeletingTrip}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-red-500/20 transition-all flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingTrip ? "Wird gelöscht..." : "Reise unwiderruflich löschen"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

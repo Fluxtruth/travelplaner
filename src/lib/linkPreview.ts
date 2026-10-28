@@ -112,6 +112,9 @@ export function getLinkMetadata(url?: string, type: ActivityType = "activity"): 
  * Helper to get a representative preview image for a Baustein
  */
 export function getBausteinImage(imageUrl?: string, url?: string, type: ActivityType = "activity"): string | null {
+  if (imageUrl === "none" || imageUrl === "disabled" || imageUrl === "false") {
+    return null;
+  }
   if (imageUrl && imageUrl.trim().length > 0) {
     return imageUrl.trim();
   }
