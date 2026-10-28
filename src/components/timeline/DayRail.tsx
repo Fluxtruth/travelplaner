@@ -77,10 +77,11 @@ interface DayRailProps {
   activeDayId: string;
   onSelect: (dayId: string) => void;
   trailing?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 /** Sticky horizontal day navigator ("jump & drop" rail). */
-export function DayRail({ columns, activeDayId, onSelect, trailing }: DayRailProps) {
+export function DayRail({ columns, activeDayId, onSelect, trailing, children }: DayRailProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Keep the active chip centered in the rail
@@ -96,7 +97,7 @@ export function DayRail({ columns, activeDayId, onSelect, trailing }: DayRailPro
   }, [activeDayId]);
 
   return (
-    <div className="sticky top-14 sm:top-16 z-30 py-1.5 sm:py-2 -mx-2.5 sm:-mx-6 lg:-mx-8 px-2.5 sm:px-6 lg:px-8 bg-slate-50/95 dark:bg-neutral-950/95 backdrop-blur-md border-b border-slate-200/80 dark:border-neutral-800/80">
+    <div className="sticky top-14 sm:top-16 z-30 py-1.5 sm:py-2 -mx-2.5 sm:-mx-6 lg:-mx-8 px-2.5 sm:px-6 lg:px-8 bg-slate-50/95 dark:bg-neutral-950/95 backdrop-blur-md border-b border-slate-200/80 dark:border-neutral-800/80 shadow-sm transition-all">
       <div className="flex items-center gap-1.5 sm:gap-2 w-full min-w-0">
         <div
           ref={scrollRef}
@@ -108,6 +109,11 @@ export function DayRail({ columns, activeDayId, onSelect, trailing }: DayRailPro
         </div>
         {trailing && <div className="shrink-0 flex items-center">{trailing}</div>}
       </div>
+      {children && (
+        <div className="mt-1.5 pt-1.5 border-t border-slate-200/60 dark:border-neutral-800/60">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

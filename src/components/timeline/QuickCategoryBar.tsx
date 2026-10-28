@@ -110,16 +110,21 @@ function QuickDraggableCategoryChip({ template, onQuickAdd }: QuickCategoryItemP
       id={`quick-add-${template.id}`}
       onClick={() => onQuickAdd?.(template)}
       title={`${template.label} – tippen zum Hinzufügen, ziehen zum Platzieren`}
-      className={`group flex flex-col items-center gap-1 w-14 shrink-0 select-none transition-all ${
+      className={`group flex flex-col items-center gap-0.5 sm:gap-1 w-12 sm:w-14 shrink-0 select-none transition-all cursor-grab active:cursor-grabbing ${
         isDragging ? "opacity-30 scale-90" : "active:scale-90"
       }`}
     >
       <span
-        className={`w-11 h-11 rounded-2xl flex items-center justify-center ${meta.tile} ring-1 ring-black/5 dark:ring-white/5 group-hover:-translate-y-0.5 group-hover:shadow-md transition-all`}
+        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center ${meta.tile} ring-1 ring-black/5 dark:ring-white/5 group-hover:-translate-y-0.5 group-hover:shadow-md transition-all`}
       >
-        <Category3DIcon type={template.id} size={28} animateOnHover={false} />
+        <span className="sm:hidden flex items-center justify-center">
+          <Category3DIcon type={template.id} size={22} animateOnHover={false} />
+        </span>
+        <span className="hidden sm:flex items-center justify-center">
+          <Category3DIcon type={template.id} size={26} animateOnHover={false} />
+        </span>
       </span>
-      <span className="text-[10px] font-semibold text-slate-600 dark:text-neutral-400 leading-none truncate max-w-full">
+      <span className="text-[9px] sm:text-[10px] font-semibold text-slate-600 dark:text-neutral-400 leading-none truncate max-w-full">
         {meta.label}
       </span>
     </button>
@@ -132,13 +137,13 @@ interface QuickCategoryBarProps {
 
 export function QuickCategoryBar({ onQuickAdd }: QuickCategoryBarProps) {
   return (
-    <div className="plan-reveal rounded-2xl bg-white/80 dark:bg-neutral-900/70 border border-slate-200/80 dark:border-neutral-800 px-2 pt-2 pb-1.5">
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+    <div className="plan-reveal">
+      <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-0.5">
         {CATEGORY_TEMPLATES.map((tpl) => (
           <QuickDraggableCategoryChip key={tpl.id} template={tpl} onQuickAdd={onQuickAdd} />
         ))}
       </div>
-      <p className="mt-1 text-center text-[10px] text-slate-400 dark:text-neutral-500">
+      <p className="mt-0.5 sm:mt-1 text-center text-[9px] sm:text-[10px] text-slate-400 dark:text-neutral-500 truncate">
         Tippen = in den Pool · Gedrückt halten &amp; ziehen = direkt in einen Tag
       </p>
     </div>

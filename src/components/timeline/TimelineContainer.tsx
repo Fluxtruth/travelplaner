@@ -926,10 +926,10 @@ export function TimelineContainer({
               </button>
             </div>
           }
-        />
-
-        {/* ================= TEMPLATE ICON STRIP (edit mode) ================= */}
-        {isEditMode && <QuickCategoryBar onQuickAdd={handleQuickAddTemplate} />}
+        >
+          {/* ================= STICKY TEMPLATE ICON STRIP (edit mode) ================= */}
+          {isEditMode && <QuickCategoryBar onQuickAdd={handleQuickAddTemplate} />}
+        </DayRail>
 
         {/* ================= AGENDA DAYS ================= */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 items-start pb-6">
