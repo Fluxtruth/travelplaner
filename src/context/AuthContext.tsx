@@ -1,10 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, onAuthStateChanged } from "firebase/auth";
+import { User, onAuthStateChanged, getRedirectResult } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
 import {
   signInWithGoogle as authSignInWithGoogle,
+  signInWithGoogleRedirect as authSignInWithGoogleRedirect,
   signInAsGuest as authSignInAsGuest,
   signOut as authSignOut,
   syncUserProfile,
@@ -16,6 +17,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<User>;
+  signInWithGoogleRedirect: () => Promise<void>;
   signInAsGuest: (name?: string) => Promise<User>;
   signOut: () => Promise<void>;
 }
@@ -28,6 +30,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    // Process redirect result if coming back from OAuth redirect (iOS/Safari fallback)
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          await syncUserProfile(result.user);
+        }
+      })
+      .catch((err) => {
+        console.warn("Redirect sign-in check error:", err);
+      });
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -58,6 +70,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleGoogleSignInRedirect = async () => {
+    setLoading(true);
+    try {
+      await authSignInWithGoogleRedirect();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGuestSignIn = async (name?: string) => {
     setLoading(true);
     try {
@@ -83,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         loading,
         signInWithGoogle: handleGoogleSignIn,
+        signInWithGoogleRedirect: handleGoogleSignInRedirect,
         signInAsGuest: handleGuestSignIn,
         signOut: handleSignOut,
       }}

@@ -1,5 +1,7 @@
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInAnonymously,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -15,12 +17,39 @@ import { auth, googleProvider, db } from "./config";
 import { UserProfile, PublicUserProfile } from "@/types";
 
 /**
- * Sign in using Google Sign-In
+ * Detect if current device is iOS (iPhone/iPad)
+ */
+export function isIOS(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+/**
+ * Detect if app is running inside an in-app browser (WhatsApp, Instagram, etc.)
+ */
+export function isInAppBrowser(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = (navigator.userAgent || navigator.vendor || "").toLowerCase();
+  return /fban|fbav|instagram|whatsapp|line|twitter|snapchat|tiktok|micromessenger/i.test(ua);
+}
+
+/**
+ * Sign in using Google Sign-In Popup
  */
 export async function signInWithGoogle(): Promise<User> {
   const result = await signInWithPopup(auth, googleProvider);
   await syncUserProfile(result.user);
   return result.user;
+}
+
+/**
+ * Sign in using Google Sign-In Redirect (robust fallback for iOS Safari and mobile)
+ */
+export async function signInWithGoogleRedirect(): Promise<void> {
+  await signInWithRedirect(auth, googleProvider);
 }
 
 /**
